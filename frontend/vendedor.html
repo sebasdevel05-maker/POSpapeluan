@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PAPELUAN - Panel Vendedor</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/quagga.min.js"></script>
+  <style>
+    .scanner-section { position: relative; }
+    .scanner-row { display: flex; gap: 0.5rem; align-items: center; }
+    .scanner-row .barcode-input { flex: 1; }
+    .btn-camera {
+      width: 48px; height: 48px; border-radius: 12px; border: 2px solid var(--primary);
+      background: var(--primary-50, #e8f0fe); color: var(--primary); font-size: 1.4rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn-camera:hover { background: var(--primary); color: #fff; }
+    .btn-camera.active { background: var(--danger); border-color: var(--danger); color: #fff; }
+    #cameraScannerBox {
+      display: none; margin-top: 0.75rem; border-radius: 12px; overflow: hidden;
+      border: 2px solid var(--primary); position: relative; background: #000;
+    }
+    #cameraScannerBox.open { display: block; }
+    #cameraVideo video, #cameraVideo canvas { width: 100%; display: block; border-radius: 10px; }
+    #cameraVideo canvas.drawingBuffer { position: absolute; top: 0; left: 0; }
+    .scan-label {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 6px;
+      font-size: 0.75rem; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar-pos">
+    <h1>PAPELUAN - Punto de Venta</h1>
+    <div class="user-info">
+      <span id="userName"></span>
+      <button class="btn-logout" onclick="logout()">Cerrar Sesion</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="grid-2" style="grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start;">
+
+      <!-- LEFT: Scanner + Cart -->
+      <div>
+        <div class="card scanner-section">
+          <h3 style="margin-bottom: 0.75rem;">Escanear Producto</h3>
+          <div class="scanner-row">
+            <input type="text" id="barcodeInput" class="barcode-input"
+                   placeholder="Escanee o escriba el codigo de barras..."
+                   autofocus autocomplete="off">
+            <button class="btn-camera" id="btnCamera" onclick="toggleCamera()" title="Escanear con camara">&#128247;</button>
+          </div>
+          <div id="cameraScannerBox">
+            <div id="cameraVideo" style="position:relative;"></div>
+            <div class="scan-label">Apunte al codigo de barras</div>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
+            Escriba el codigo o use la camara para escanear
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="flex-between" style="margin-bottom: 0.75rem;">
+            <h3 style="margin: 0;">Carrito de Compras</h3>
+            <button class="btn btn-danger btn-sm" onclick="clearCart()" id="btnClearCart" style="display:none;">
+              Vaciar
+            </button>
+          </div>
+
+          <div id="emptyCart" class="empty-state">
+            <div class="icon">&#128722;</div>
+            <p>Carrito vacio. Escanee un producto para comenzar.</p>
+          </div>
+
+          <div id="cartContent" style="display: none;">
+            <table class="cart-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th style="width: 80px;">Precio</th>
+                  <th style="width: 70px;">Cant.</th>
+                  <th style="width: 80px;">Subtotal</th>
+                  <th style="width: 36px;"></th>
+                </tr>
+              </thead>
+              <tbody id="cartBody"></tbody>
+            </table>
+          </div>
+
+          <div id="cartTotal" style="display: none; border-top: 2px solid var(--border); margin-top: 0.75rem;">
+            <!-- Discount row -->
+            <div id="discountRow" style="display: none; padding: 0.5rem 0; text-align: right; font-size: 0.85rem; color: var(--text-muted);">
+              Subtotal: $<span id="subtotalAmount">0.00</span>
+              &nbsp; | &nbsp;
+              <span style="color: var(--danger);">-<span id="discountDisplay">0</span>% desc.</span>
+            </div>
+            <div class="total-display">
+              Total: $<span id="totalAmount">0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Sale info + Catalog -->
+      <div>
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem;">Datos de la Venta</h3>
+          <div class="form-group">
+            <label>Cliente</label>
+            <input type="text" id="customerName" placeholder="Cliente General">
+          </div>
+          <div class="grid-2" style="gap: 0.75rem;">
+            <div class="form-group">
+              <label>Vendedor</label>
+              <input type="text" id="sellerName" readonly>
+            </div>
+            <div class="form-group">
+              <label>Fecha</label>
+              <input type="text" id="currentDate" readonly>
+            </div>
+          </div>
+
+          <!-- Payment Method -->
+          <div class="form-group">
+            <label>Metodo de Pago</label>
+            <div class="payment-options">
+              <button class="payment-option active" data-method="Efectivo" onclick="selectPayment(this)">Efectivo</button>
+              <button class="payment-option" data-method="Transferencia" onclick="selectPayment(this)">Transferencia</button>
+            </div>
+          </div>
+
+          <!-- Discount -->
+          <div class="form-group">
+            <label>Descuento (%)</label>
+            <input type="number" id="discountPercent" min="0" max="100" value="0" step="1"
+                   oninput="renderCart()" style="font-weight: 600;">
+          </div>
+
+          <button class="btn btn-success btn-lg" style="width: 100;"
+                  onclick="finalizeSale()" id="btnFinalize" disabled>
+            Finalizar Venta
+          </button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom: 0.5rem;">Catalogo</h3>
+          <input type="text" id="catalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
+                 placeholder="Buscar producto...">
+          <div id="catalogList" class="product-catalog" style="max-height: 380px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const currentUser = requireAuth('vendedor');
+    if (!currentUser) throw new Error('redirect');
+
+    document.getElementById('userName').textContent = currentUser.name;
+    document.getElementById('sellerName').value = currentUser.name;
+
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById('currentDate').value = now.toLocaleDateString('es-ES', {
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 60000);
+
+    const socket = io();
+    let cart = [];
+    let products = [];
+    let selectedPayment = 'Efectivo';
+
+    function selectPayment(btn) {
+      document.querySelectorAll('.payment-option').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedPayment = btn.dataset.method;
+    }
+
+    async function loadProducts() {
+      try {
+        products = await api('/products');
+        renderCatalog();
+      } catch (err) {
+        showToast('Error cargando productos: ' + err.message, 'error');
+      }
+    }
+
+    function renderCatalog(filter = '') {
+      const container = document.getElementById('catalogList');
+      const filtered = products.filter(p =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.category_name?.toLowerCase().includes(filter.toLowerCase()) ||
+        p.barcode.includes(filter)
+      );
+
+      container.innerHTML = filtered.map(p => `
+        <div class="catalog-item${p.stock <= 0 ? ' out-of-stock' : ''}" onclick="${p.stock > 0 ? `addToCartById(${p.id})` : ''}">
+          <div class="name">${p.name}</div>
+          <div class="category">${p.category_name || 'Sin categoria'}</div>
+          <div class="price">$${p.sale_price.toFixed(2)}</div>
+          <div class="stock-badge">${p.stock > 0 ? p.stock + ' disp.' : 'Agotado'}</div>
+        </div>
+      `).join('');
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1; padding: 1.5rem;"><p>No se encontraron productos</p></div>';
+      }
+    }
+
+    document.getElementById('catalogSearch').addEventListener('input', (e) => {
+      renderCatalog(e.target.value);
+    });
+
+    const barcodeInput = document.getElementById('barcodeInput');
+
+    barcodeInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = barcodeInput.value.trim();
+        if (!code) return;
+
+        try {
+          const product = await api(`/products/barcode/${encodeURIComponent(code)}`);
+          addToCart(product);
+          barcodeInput.value = '';
+        } catch (err) {
+          showToast('Producto no encontrado: ' + code, 'error');
+          barcodeInput.value = '';
+        }
+
+        barcodeInput.focus();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.catalog-item') && !e.target.closest('input') && !e.target.closest('button') && !e.target.closest('select')) {
+        barcodeInput.focus();
+      }
+    });
+
+    function addToCartById(productId) {
+      const product = products.find(p => p.id === productId);
+      if (product) addToCart(product);
+    }
+
+    function addToCart(product) {
+      const existing = cart.find(item => item.id === product.id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        cart.push({
+          id: product.id,
+          product_id: product.id,
+          name: product.name,
+          barcode: product.barcode,
+          sale_price: product.sale_price,
+          quantity: 1
+        });
+      }
+      renderCart();
+      showToast(`${product.name} agregado`, 'success');
+    }
+
+    function updateQuantity(productId, qty) {
+      const item = cart.find(i => i.id === productId);
+      if (!item) return;
+      const newQty = parseInt(qty);
+      if (newQty <= 0) { removeFromCart(productId); return; }
+      item.quantity = newQty;
+      renderCart();
+    }
+
+    function removeFromCart(productId) {
+      cart = cart.filter(i => i.id !== productId);
+      renderCart();
+    }
+
+    function clearCart() {
+      cart = [];
+      renderCart();
+    }
+
+    function renderCart() {
+      const empty = document.getElementById('emptyCart');
+      const content = document.getElementById('cartContent');
+      const totalDiv = document.getElementById('cartTotal');
+      const btnClear = document.getElementById('btnClearCart');
+      const btnFinalize = document.getElementById('btnFinalize');
+
+      if (cart.length === 0) {
+        empty.style.display = 'block';
+        content.style.display = 'none';
+        totalDiv.style.display = 'none';
+        btnClear.style.display = 'none';
+        btnFinalize.disabled = true;
+        return;
+      }
+
+      empty.style.display = 'none';
+      content.style.display = 'block';
+      totalDiv.style.display = 'block';
+      btnClear.style.display = 'inline-flex';
+      btnFinalize.disabled = false;
+
+      const tbody = document.getElementById('cartBody');
+      let subtotal = 0;
+
+      tbody.innerHTML = cart.map(item => {
+        const itemSub = item.sale_price * item.quantity;
+        subtotal += itemSub;
+        return `
+          <tr>
+            <td>
+              <strong>${item.name}</strong><br>
+              <small style="color: var(--text-light);">${item.barcode}</small>
+            </td>
+            <td>$${item.sale_price.toFixed(2)}</td>
+            <td>
+              <input type="number" class="qty-input" value="${item.quantity}" min="1"
+                     onchange="updateQuantity(${item.id}, this.value)">
+            </td>
+            <td><strong>$${itemSub.toFixed(2)}</strong></td>
+            <td>
+              <button class="btn btn-danger btn-icon btn-sm" onclick="removeFromCart(${item.id})" title="Eliminar">&#10005;</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const discount = Math.max(0, Math.min(100, parseFloat(document.getElementById('discountPercent').value) || 0));
+      const discountAmount = subtotal * (discount / 100);
+      const total = subtotal - discountAmount;
+
+      const discountRow = document.getElementById('discountRow');
+      if (discount > 0) {
+        discountRow.style.display = 'block';
+        document.getElementById('subtotalAmount').textContent = subtotal.toFixed(2);
+        document.getElementById('discountDisplay').textContent = discount;
+      } else {
+        discountRow.style.display = 'none';
+      }
+
+      document.getElementById('totalAmount').textContent = total.toFixed(2);
+    }
+
+    async function finalizeSale() {
+      if (cart.length === 0) return;
+
+      const customerName = document.getElementById('customerName').value.trim() || 'Cliente General';
+      const discount = parseFloat(document.getElementById('discountPercent').value) || 0;
+
+      const items = cart.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity
+      }));
+
+      try {
+        document.getElementById('btnFinalize').disabled = true;
+
+        const sale = await api('/sales', {
+          method: 'POST',
+          body: JSON.stringify({
+            customer_name: customerName,
+            items,
+            payment_method: selectedPayment,
+            discount_percent: discount
+          })
+        });
+
+        showToast(`Venta ${sale.invoice_number} - Total: $${sale.total.toFixed(2)}`, 'success');
+
+        const token = getToken();
+        window.open(`/api/sales/${sale.id}/invoice?token=${token}`, '_blank');
+
+        cart = [];
+        document.getElementById('customerName').value = '';
+        document.getElementById('discountPercent').value = '0';
+        document.querySelectorAll('.payment-option').forEach(b => b.classList.remove('active'));
+        document.querySelector('[data-method="Efectivo"]').classList.add('active');
+        selectedPayment = 'Efectivo';
+        renderCart();
+        loadProducts();
+
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        document.getElementById('btnFinalize').disabled = false;
+      }
+    }
+
+    socket.on('inventory-updated', () => { loadProducts(); });
+
+    // Camera barcode scanner using Quagga2
+    let cameraActive = false;
+
+    function toggleCamera() {
+      if (cameraActive) { stopCamera(); return; }
+
+      const btn = document.getElementById('btnCamera');
+      const box = document.getElementById('cameraScannerBox');
+      btn.classList.add('active');
+      box.classList.add('open');
+      cameraActive = true;
+
+      Quagga.init({
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: document.getElementById('cameraVideo'),
+          constraints: {
+            facingMode: 'environment',
+            width: { min: 640, ideal: 1920 },
+            height: { min: 480, ideal: 1080 }
+          }
+        },
+        locator: {
+          patchSize: 'medium',
+          halfSample: false
+        },
+        decoder: {
+          readers: [
+            'code_128_reader',
+            'ean_reader',
+            'ean_8_reader',
+            'upc_reader',
+            'upc_e_reader',
+            'code_39_reader',
+            'code_93_reader',
+            'i2of5_reader'
+          ],
+          multiple: false
+        },
+        locate: true,
+        frequency: 10
+      }, (err) => {
+        if (err) {
+          showToast('No se pudo acceder a la camara', 'error');
+          stopCamera();
+          return;
+        }
+        Quagga.start();
+
+        // Enable torch if available
+        try {
+          const track = Quagga.CameraAccess.getActiveTrack();
+          if (track) {
+            const caps = track.getCapabilities ? track.getCapabilities() : {};
+            if (caps.torch) track.applyConstraints({ advanced: [{ torch: true }] });
+            if (caps.focusMode && caps.focusMode.includes('continuous')) {
+              track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            }
+          }
+        } catch {}
+      });
+
+      let lastCode = '';
+      let codeCount = 0;
+      Quagga.onDetected((result) => {
+        const code = result.codeResult.code;
+        if (!code) return;
+        if (code === lastCode) { codeCount++; } else { lastCode = code; codeCount = 1; }
+        if (codeCount < 2) return;
+        codeCount = 0; lastCode = '';
+        if (navigator.vibrate) navigator.vibrate(200);
+        stopCamera();
+        let cleanCode = code.replace(/\s+/g, '').toUpperCase();
+        if (/^PAPL\d+$/.test(cleanCode)) cleanCode = cleanCode.replace('PAPL', 'PAPL-');
+        (async () => {
+          try {
+            const product = await api(`/products/barcode/${encodeURIComponent(cleanCode)}`);
+            addToCart(product);
+          } catch {
+            showToast('Producto no encontrado: ' + cleanCode, 'error');
+          }
+        })();
+      });
+    }
+
+    function stopCamera() {
+      const btn = document.getElementById('btnCamera');
+      const box = document.getElementById('cameraScannerBox');
+      btn.classList.remove('active');
+      cameraActive = false;
+      try { Quagga.offDetected(); Quagga.stop(); } catch {}
+      box.classList.remove('open');
+      barcodeInput.focus();
+    }
+
+    loadProducts();
+    barcodeInput.focus();
+  </script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

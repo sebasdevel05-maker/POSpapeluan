@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PAPELUAN - Administracion</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <nav class="navbar-pos">
+    <h1>PAPELUAN - Administracion</h1>
+    <div class="user-info">
+      <span id="userName"></span>
+      <button class="btn-logout" onclick="logout()">Cerrar Sesion</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('pos', this)">Punto de Venta</button>
+      <button class="tab-btn" onclick="switchTab('inventory', this)">Inventario</button>
+      <button class="tab-btn" onclick="switchTab('sales', this)">Ventas</button>
+      <button class="tab-btn" onclick="switchTab('movements', this)">Movimientos</button>
+      <button class="tab-btn" onclick="switchTab('users', this)">Usuarios</button>
+      <button class="tab-btn" onclick="switchTab('cashclose', this)">Corte de Caja</button>
+    </div>
+
+    <!-- ═══════════════ DASHBOARD ═══════════════ -->
+    <div id="tab-dashboard" class="tab-panel active">
+      <div class="grid-4" id="metricsRow">
+        <div class="metric-card">
+          <div class="value" id="metricTodayTotal">$0</div>
+          <div class="label">Ventas Hoy</div>
+          <div class="sub" id="metricTodayCount">0 transacciones</div>
+        </div>
+        <div class="metric-card">
+          <div class="value" id="metricWeekTotal">$0</div>
+          <div class="label">Esta Semana</div>
+          <div class="sub" id="metricWeekCount">0 transacciones</div>
+        </div>
+        <div class="metric-card">
+          <div class="value" id="metricMonthTotal">$0</div>
+          <div class="label">Este Mes</div>
+          <div class="sub" id="metricMonthCount">0 transacciones</div>
+        </div>
+        <div class="metric-card danger">
+          <div class="value" id="metricLowStock">0</div>
+          <div class="label">Stock Bajo</div>
+          <div class="sub" id="metricTotalProducts">0 productos</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top: 1rem;">
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem;">Top 5 Productos del Mes</h3>
+          <table class="inv-table">
+            <thead><tr><th>Producto</th><th>Vendidos</th><th>Ingresos</th></tr></thead>
+            <tbody id="topProductsBody">
+              <tr><td colspan="3" class="empty-state" style="padding:1.5rem;">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem;">Ventas - Ultimos 7 Dias</h3>
+          <div id="salesChart" style="min-height: 200px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top: 0;">
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem;">Ventas por Metodo de Pago (Hoy)</h3>
+          <div id="paymentMethodChart"></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem;">Productos con Stock Bajo</h3>
+          <div id="lowStockList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ PUNTO DE VENTA ═══════════════ -->
+    <div id="tab-pos" class="tab-panel">
+      <div class="grid-2" style="grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start;">
+        <div>
+          <div class="card">
+            <h3 style="margin-bottom: 0.75rem;">Escanear Producto</h3>
+            <input type="text" id="posBarcodeInput" class="barcode-input"
+                   placeholder="Escanee o escriba el codigo de barras..." autocomplete="off">
+            <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
+              El lector ingresara el codigo automaticamente
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="flex-between" style="margin-bottom: 0.75rem;">
+              <h3 style="margin: 0;">Carrito de Compras</h3>
+              <button class="btn btn-danger btn-sm" onclick="posClearCart()" id="posBtnClear" style="display:none;">Vaciar</button>
+            </div>
+            <div id="posEmptyCart" class="empty-state">
+              <div class="icon">&#128722;</div>
+              <p>Carrito vacio. Escanee un producto para comenzar.</p>
+            </div>
+            <div id="posCartContent" style="display: none;">
+              <table class="cart-table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th style="width: 80px;">Precio</th>
+                    <th style="width: 70px;">Cant.</th>
+                    <th style="width: 80px;">Subtotal</th>
+                    <th style="width: 36px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="posCartBody"></tbody>
+              </table>
+            </div>
+            <div id="posCartTotal" style="display: none; border-top: 2px solid var(--border); margin-top: 0.75rem;">
+              <div id="posDiscountRow" style="display: none; padding: 0.5rem 0; text-align: right; font-size: 0.85rem; color: var(--text-muted);">
+                Subtotal: $<span id="posSubtotalAmount">0.00</span>
+                &nbsp; | &nbsp;
+                <span style="color: var(--danger);">-<span id="posDiscountDisplay">0</span>% desc.</span>
+              </div>
+              <div class="total-display">
+                Total: $<span id="posTotalAmount">0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3 style="margin-bottom: 0.75rem;">Datos de la Venta</h3>
+            <div class="form-group">
+              <label>Cliente</label>
+              <input type="text" id="posCustomerName" placeholder="Cliente General">
+            </div>
+            <div class="grid-2" style="gap: 0.75rem;">
+              <div class="form-group">
+                <label>Vendedor</label>
+                <input type="text" id="posSellerName" readonly>
+              </div>
+              <div class="form-group">
+                <label>Fecha</label>
+                <input type="text" id="posCurrentDate" readonly>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Metodo de Pago</label>
+              <div class="payment-options">
+                <button class="payment-option active" data-method="Efectivo" onclick="posSelectPayment(this)">Efectivo</button>
+                <button class="payment-option" data-method="Transferencia" onclick="posSelectPayment(this)">Transferencia</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Descuento (%)</label>
+              <input type="number" id="posDiscountPercent" min="0" max="100" value="0" step="1"
+                     oninput="posRenderCart()" style="font-weight: 600;">
+            </div>
+            <button class="btn btn-success btn-lg" style="width: 100%;"
+                    onclick="posFinalizeSale()" id="posBtnFinalize" disabled>
+              Finalizar Venta
+            </button>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom: 0.5rem;">Catalogo</h3>
+            <input type="text" id="posCatalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
+                   placeholder="Buscar producto...">
+            <div id="posCatalogList" class="product-catalog" style="max-height: 380px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ INVENTORY ═══════════════ -->
+    <div id="tab-inventory" class="tab-panel">
+      <div class="card">
+        <div class="flex-between" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="margin: 0;">Inventario Completo</h3>
+          <div class="flex-gap">
+            <input type="text" id="inventorySearch" class="search-input" placeholder="Buscar producto...">
+            <button class="btn btn-info" onclick="openLabelModal()">&#9113; Imprimir Etiquetas</button>
+            <button class="btn btn-primary" onclick="openProductModal()">+ Nuevo Producto</button>
+          </div>
+        </div>
+        <div id="inventorySummary" class="grid-4" style="margin-bottom: 1rem;"></div>
+        <div style="max-height: 600px; overflow-y: auto;">
+          <table class="inv-table">
+            <thead>
+              <tr>
+                <th>Cod. Barras</th><th>Producto</th><th>Categoria</th>
+                <th>P. Costo</th><th>P. Venta</th><th>Margen</th><th>Stock</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ SALES ═══════════════ -->
+    <div id="tab-sales" class="tab-panel">
+      <div class="card">
+        <div class="flex-between" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="margin: 0;">Reporte de Ventas</h3>
+          <div class="flex-gap flex-wrap">
+            <button class="btn btn-primary btn-sm" onclick="loadSalesReport('today')">Hoy</button>
+            <button class="btn btn-primary btn-sm" onclick="loadSalesReport('week')">Semana</button>
+            <button class="btn btn-primary btn-sm" onclick="loadSalesReport('month')">Mes</button>
+            <span style="color: var(--text-light);">|</span>
+            <input type="date" id="salesFrom" class="search-input" style="width: 140px;">
+            <input type="date" id="salesTo" class="search-input" style="width: 140px;">
+            <button class="btn btn-outline btn-sm" onclick="loadSalesReportCustom()">Filtrar</button>
+          </div>
+        </div>
+
+        <div id="salesSummary" class="flex-gap" style="margin-bottom: 1rem; gap: 1.5rem;">
+          <div><span class="section-title">Total Ventas</span><br><strong id="salesSummaryCount" style="font-size: 1.2rem;">0</strong></div>
+          <div><span class="section-title">Ingresos</span><br><strong id="salesSummaryRevenue" style="font-size: 1.2rem; color: var(--success);">$0.00</strong></div>
+          <div id="salesByMethodSummary"></div>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table class="inv-table">
+            <thead>
+              <tr><th>Factura</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th><th>M. Pago</th><th>Productos</th><th>Total</th><th></th></tr>
+            </thead>
+            <tbody id="salesBody">
+              <tr><td colspan="8" class="empty-state" style="padding:2rem;">Seleccione un periodo</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ MOVEMENTS ═══════════════ -->
+    <div id="tab-movements" class="tab-panel">
+      <div class="card">
+        <div class="flex-between" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="margin: 0;">Historial de Movimientos</h3>
+          <div class="flex-gap flex-wrap">
+            <select id="movementType" class="search-input" style="width: 150px;">
+              <option value="">Todos los tipos</option>
+              <option value="entrada">Entradas</option>
+              <option value="salida">Salidas</option>
+              <option value="ajuste">Ajustes</option>
+              <option value="devolucion">Devoluciones</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="loadMovements()">Filtrar</button>
+            <span style="color: var(--text-light);">|</span>
+            <button class="btn btn-success btn-sm" onclick="openEntryModal()">+ Entrada</button>
+            <button class="btn btn-warning btn-sm" onclick="openReturnModal()">Devolucion</button>
+          </div>
+        </div>
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table class="inv-table">
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Razon</th><th>Usuario</th></tr></thead>
+            <tbody id="movementsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ USERS ═══════════════ -->
+    <div id="tab-users" class="tab-panel">
+      <div class="card">
+        <div class="flex-between" style="margin-bottom: 1rem;">
+          <h3 style="margin: 0;">Gestion de Usuarios</h3>
+          <button class="btn btn-primary" onclick="openUserModal()">+ Nuevo Usuario</button>
+        </div>
+        <table class="inv-table">
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════ CASH CLOSING ═══════════════ -->
+    <div id="tab-cashclose" class="tab-panel">
+      <div class="grid-2" style="align-items: start;">
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Realizar Corte de Caja</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            El corte calcula las ventas desde el ultimo cierre. Ingrese el efectivo contado fisicamente.
+          </p>
+          <div class="form-group">
+            <label>Efectivo Contado ($)</label>
+            <input type="number" id="cashActual" min="0" step="0.01" placeholder="0.00" style="font-size: 1.2rem; font-weight: 700;">
+          </div>
+          <div class="form-group">
+            <label>Notas (opcional)</label>
+            <textarea id="cashNotes" rows="2" style="width:100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.85rem; resize: none;"></textarea>
+          </div>
+          <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="doCashClosing()">Realizar Corte</button>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Historial de Cortes</h3>
+          <div id="cashClosingsList" style="max-height: 500px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MODALS ═══════════════ -->
+
+  <!-- Product Modal -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="productModalTitle">Nuevo Producto</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('productModal')">&#10005;</button>
+      </div>
+      <form id="productForm" onsubmit="saveProduct(event)">
+        <input type="hidden" id="prodId">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Codigo de Barras *</label>
+            <input type="text" id="prodBarcode" required>
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <select id="prodCategory"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input type="text" id="prodName" required>
+        </div>
+        <div class="form-group">
+          <label>Descripcion</label>
+          <input type="text" id="prodDesc">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Precio Costo</label>
+            <input type="number" step="0.01" id="prodCost" value="0">
+          </div>
+          <div class="form-group">
+            <label>Precio Venta *</label>
+            <input type="number" step="0.01" id="prodPrice" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Stock Inicial</label>
+            <input type="number" id="prodStock" value="0">
+          </div>
+          <div class="form-group">
+            <label>Stock Minimo</label>
+            <input type="number" id="prodMinStock" value="5">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Producto</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Entry Modal -->
+  <div class="modal-overlay" id="entryModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Entrada de Mercancia</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('entryModal')">&#10005;</button>
+      </div>
+      <form onsubmit="saveEntry(event)">
+        <div class="form-group"><label>Producto</label><select id="entryProduct" required></select></div>
+        <div class="form-group"><label>Cantidad</label><input type="number" id="entryQty" min="1" required></div>
+        <div class="form-group"><label>Razon</label><input type="text" id="entryReason" value="Entrada de mercancia"></div>
+        <button type="submit" class="btn btn-success" style="width: 100%;">Registrar Entrada</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Return Modal -->
+  <div class="modal-overlay" id="returnModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Devolucion de Producto</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('returnModal')">&#10005;</button>
+      </div>
+      <form onsubmit="saveReturn(event)">
+        <div class="form-group"><label>Producto</label><select id="returnProduct" required></select></div>
+        <div class="form-group"><label>Cantidad</label><input type="number" id="returnQty" min="1" required></div>
+        <div class="form-group"><label>Razon</label><input type="text" id="returnReason" value="Devolucion de cliente"></div>
+        <button type="submit" class="btn btn-warning" style="width: 100%;">Registrar Devolucion</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div class="modal-overlay" id="userModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="userModalTitle">Nuevo Usuario</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('userModal')">&#10005;</button>
+      </div>
+      <form id="userForm" onsubmit="saveUser(event)">
+        <input type="hidden" id="userId">
+        <div class="form-group"><label>Nombre Completo *</label><input type="text" id="userFullName" required></div>
+        <div class="form-group"><label>Nombre de Usuario *</label><input type="text" id="userUsername" required></div>
+        <div class="form-group"><label id="userPassLabel">Contrasena *</label><input type="password" id="userPassword"></div>
+        <div class="form-group">
+          <label>Rol *</label>
+          <select id="userRole" required>
+            <option value="vendedor">Vendedor</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Usuario</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Label Modal -->
+  <div class="modal-overlay" id="labelModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Imprimir Etiquetas</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('labelModal')">&#10005;</button>
+      </div>
+      <div style="margin-bottom: 0.75rem;">
+        <input type="text" id="labelSearch" class="search-input" style="width:100%;" placeholder="Buscar producto para agregar..." oninput="filterLabelProducts(this.value)">
+      </div>
+      <div id="labelProductList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
+      <div>
+        <p class="text-xs font-semibold" style="color: var(--text-muted); margin-bottom: 0.5rem;">PRODUCTOS SELECCIONADOS</p>
+        <div id="labelSelected" style="min-height: 40px;"></div>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center;">
+        <span id="labelTotalCount" style="font-size: 0.85rem; color: var(--text-muted); flex: 1;">0 etiquetas</span>
+        <button class="btn btn-secondary" onclick="selectAllForLabels()">Seleccionar Todo</button>
+        <button class="btn btn-primary" onclick="printLabels()">Imprimir Directo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const currentUser = requireAuth('admin');
+    if (!currentUser) throw new Error('redirect');
+    document.getElementById('userName').textContent = currentUser.name;
+
+    const socket = io();
+    let allProducts = [];
+    let categories = [];
+
+    // ═══════════════ TAB NAVIGATION ═══════════════
+    function switchTab(tabName, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      btn.classList.add('active');
+
+      if (tabName === 'dashboard') loadDashboard();
+      if (tabName === 'pos') posInit();
+      if (tabName === 'inventory') loadInventory();
+      if (tabName === 'movements') loadMovements();
+      if (tabName === 'users') loadUsers();
+      if (tabName === 'cashclose') loadCashClosings();
+    }
+
+    // ═══════════════ DASHBOARD ═══════════════
+    async function loadDashboard() {
+      try {
+        const data = await api('/reports/dashboard');
+
+        document.getElementById('metricTodayTotal').textContent = `$${data.today.total.toFixed(2)}`;
+        document.getElementById('metricTodayCount').textContent = `${data.today.count} transacciones`;
+        document.getElementById('metricWeekTotal').textContent = `$${data.week.total.toFixed(2)}`;
+        document.getElementById('metricWeekCount').textContent = `${data.week.count} transacciones`;
+        document.getElementById('metricMonthTotal').textContent = `$${data.month.total.toFixed(2)}`;
+        document.getElementById('metricMonthCount').textContent = `${data.month.count} transacciones`;
+        document.getElementById('metricLowStock').textContent = data.lowStock;
+        document.getElementById('metricTotalProducts').textContent = `${data.totalProducts} productos`;
+
+        // Top products
+        const topBody = document.getElementById('topProductsBody');
+        if (data.topProducts.length === 0) {
+          topBody.innerHTML = '<tr><td colspan="3" class="empty-state" style="padding:1.5rem;">Sin datos aun</td></tr>';
+        } else {
+          topBody.innerHTML = data.topProducts.map((p, i) => `
+            <tr>
+              <td><strong>${p.product_name}</strong></td>
+              <td><span class="badge badge-primary">${p.total_sold} uds</span></td>
+              <td style="font-weight:700; color: var(--success);">$${p.revenue.toFixed(2)}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Sales chart
+        const chartDiv = document.getElementById('salesChart');
+        if (data.salesByDay.length === 0) {
+          chartDiv.innerHTML = '<div class="empty-state"><p>Sin datos de ventas</p></div>';
+        } else {
+          const maxTotal = Math.max(...data.salesByDay.map(d => d.total));
+          chartDiv.innerHTML = data.salesByDay.map(d => {
+            const pct = maxTotal > 0 ? (d.total / maxTotal * 100) : 0;
+            const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+            return `
+              <div class="bar-chart-row">
+                <span class="label">${dayLabel}</span>
+                <div class="bar-bg"><div class="bar-fill" style="width: ${pct}%;"></div></div>
+                <span class="value">$${d.total.toFixed(0)} (${d.count})</span>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Payment methods
+        const pmDiv = document.getElementById('paymentMethodChart');
+        if (!data.salesByMethod || data.salesByMethod.length === 0) {
+          pmDiv.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>Sin ventas hoy</p></div>';
+        } else {
+          const colors = { Efectivo: 'success', Transferencia: 'warning' };
+          pmDiv.innerHTML = data.salesByMethod.map(m => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
+              <span class="badge badge-${colors[m.method] || 'primary'}">${m.method}</span>
+              <span style="font-size:0.85rem;">${m.count} ventas</span>
+              <strong style="color: var(--success);">$${m.total.toFixed(2)}</strong>
+            </div>
+          `).join('');
+        }
+
+        // Low stock
+        const lsDiv = document.getElementById('lowStockList');
+        if (!data.lowStockProducts || data.lowStockProducts.length === 0) {
+          lsDiv.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>Todo en orden</p></div>';
+        } else {
+          lsDiv.innerHTML = data.lowStockProducts.map(p => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.45rem 0; border-bottom: 1px solid var(--border-light);">
+              <div>
+                <strong style="font-size:0.85rem;">${p.name}</strong><br>
+                <code>${p.barcode}</code>
+              </div>
+              <span class="badge badge-danger">${p.stock} / ${p.min_stock}</span>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        showToast('Error cargando dashboard: ' + err.message, 'error');
+      }
+    }
+
+    // ═══════════════ INVENTORY ═══════════════
+    async function loadInventory() {
+      try {
+        allProducts = await api('/products');
+        categories = await api('/categories');
+        renderInventory();
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    function renderInventory(filter = '') {
+      const body = document.getElementById('inventoryBody');
+      const summary = document.getElementById('inventorySummary');
+      let filtered = allProducts;
+      if (filter) {
+        const f = filter.toLowerCase();
+        filtered = allProducts.filter(p =>
+          p.name.toLowerCase().includes(f) || p.barcode.includes(f) || p.category_name?.toLowerCase().includes(f)
+        );
+      }
+
+      const totalUnits = allProducts.reduce((s, p) => s + p.stock, 0);
+      const totalCost = allProducts.reduce((s, p) => s + (p.cost_price * p.stock), 0);
+      const totalSale = allProducts.reduce((s, p) => s + (p.sale_price * p.stock), 0);
+      const totalProfit = totalSale - totalCost;
+      const fmt = n => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      summary.innerHTML = `
+        <div class="metric-card"><div class="value">${allProducts.length}</div><div class="label">Productos</div><div class="sub">${totalUnits} unidades</div></div>
+        <div class="metric-card"><div class="value" style="color:var(--info);">${fmt(totalCost)}</div><div class="label">Inversion (Costo)</div><div class="sub">Valor de compra</div></div>
+        <div class="metric-card"><div class="value" style="color:var(--success);">${fmt(totalSale)}</div><div class="label">Valor de Venta</div><div class="sub">Si se vende todo</div></div>
+        <div class="metric-card"><div class="value" style="color:var(--warning);">${fmt(totalProfit)}</div><div class="label">Ganancia Potencial</div><div class="sub">Venta - Costo</div></div>
+      `;
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding:2rem;">No se encontraron productos</td></tr>';
+        return;
+      }
+
+      body.innerHTML = filtered.map(p => {
+        const margin = p.cost_price > 0 ? (((p.sale_price - p.cost_price) / p.cost_price) * 100).toFixed(0) : '-';
+        const stockClass = p.stock <= p.min_stock ? 'stock-low' : 'stock-ok';
+        return `
+          <tr>
+            <td><code>${p.barcode}</code></td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.category_name || '-'}</td>
+            <td>$${p.cost_price.toFixed(2)}</td>
+            <td>$${p.sale_price.toFixed(2)}</td>
+            <td><span class="badge ${margin > 50 ? 'badge-success' : margin > 20 ? 'badge-warning' : 'badge-danger'}">${margin}%</span></td>
+            <td class="${stockClass}">${p.stock} ${p.stock <= p.min_stock ? '(BAJO)' : ''}</td>
+            <td>
+              <div class="flex-gap">
+                <button class="btn btn-outline btn-sm" onclick="editProduct(${p.id})">Editar</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Eliminar</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('inventorySearch').addEventListener('input', (e) => { renderInventory(e.target.value); });
+
+    // ═══════════════ PRODUCT CRUD ═══════════════
+    function openProductModal(product = null) {
+      const catSelect = document.getElementById('prodCategory');
+      catSelect.innerHTML = '<option value="">Sin categoria</option>' +
+        categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      if (product) {
+        document.getElementById('productModalTitle').textContent = 'Editar Producto';
+        document.getElementById('prodId').value = product.id;
+        document.getElementById('prodBarcode').value = product.barcode;
+        document.getElementById('prodName').value = product.name;
+        document.getElementById('prodDesc').value = product.description || '';
+        document.getElementById('prodCategory').value = product.category_id || '';
+        document.getElementById('prodCost').value = product.cost_price;
+        document.getElementById('prodPrice').value = product.sale_price;
+        document.getElementById('prodStock').value = product.stock;
+        document.getElementById('prodMinStock').value = product.min_stock;
+      } else {
+        document.getElementById('productModalTitle').textContent = 'Nuevo Producto';
+        document.getElementById('productForm').reset();
+        document.getElementById('prodId').value = '';
+      }
+      document.getElementById('productModal').classList.add('active');
+    }
+
+    function editProduct(id) {
+      const product = allProducts.find(p => p.id === id);
+      if (product) openProductModal(product);
+    }
+
+    async function saveProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('prodId').value;
+      const data = {
+        barcode: document.getElementById('prodBarcode').value.trim(),
+        name: document.getElementById('prodName').value.trim(),
+        description: document.getElementById('prodDesc').value.trim(),
+        category_id: document.getElementById('prodCategory').value || null,
+        cost_price: parseFloat(document.getElementById('prodCost').value) || 0,
+        sale_price: parseFloat(document.getElementById('prodPrice').value),
+        stock: parseInt(document.getElementById('prodStock').value) || 0,
+        min_stock: parseInt(document.getElementById('prodMinStock').value) || 5
+      };
+
+      try {
+        if (id) {
+          await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+          showToast('Producto actualizado', 'success');
+        } else {
+          await api('/products', { method: 'POST', body: JSON.stringify(data) });
+          showToast('Producto creado', 'success');
+        }
+        closeModal('productModal');
+        loadInventory().catch(() => {});
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        closeModal('productModal');
+      }
+    }
+
+    async function deleteProduct(id, name) {
+      if (!confirm(`Eliminar "${name}"?`)) return;
+      try {
+        await api(`/products/${id}`, { method: 'DELETE' });
+        showToast('Producto eliminado', 'success');
+        loadInventory();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    // ═══════════════ SALES REPORT ═══════════════
+    async function loadSalesReport(period) {
+      try {
+        const data = await api(`/reports/sales?period=${period}`);
+        renderSalesReport(data);
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function loadSalesReportCustom() {
+      const from = document.getElementById('salesFrom').value;
+      const to = document.getElementById('salesTo').value;
+      if (!from || !to) { showToast('Seleccione ambas fechas', 'warning'); return; }
+      try {
+        const data = await api(`/reports/sales?from=${from}&to=${to}`);
+        renderSalesReport(data);
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    function renderSalesReport(data) {
+      document.getElementById('salesSummaryCount').textContent = data.summary.total_sales;
+      document.getElementById('salesSummaryRevenue').textContent = `$${data.summary.total_revenue.toFixed(2)}`;
+
+      const methodDiv = document.getElementById('salesByMethodSummary');
+      if (data.byMethod && data.byMethod.length > 0) {
+        methodDiv.innerHTML = data.byMethod.map(m =>
+          `<span class="badge badge-info" style="margin-right:0.3rem;">${m.method}: $${m.total.toFixed(2)}</span>`
+        ).join('');
+      } else {
+        methodDiv.innerHTML = '';
+      }
+
+      const body = document.getElementById('salesBody');
+      if (data.sales.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding:2rem;">Sin ventas en este periodo</td></tr>';
+        return;
+      }
+
+      body.innerHTML = data.sales.map(s => {
+        const date = new Date(s.created_at);
+        const methodColors = { Efectivo: 'success', Transferencia: 'warning' };
+        const pm = s.payment_method || 'Efectivo';
+        return `
+          <tr>
+            <td><strong>${s.invoice_number}</strong></td>
+            <td>${date.toLocaleString('es-ES')}</td>
+            <td>${s.customer_name}</td>
+            <td>${s.seller_name}</td>
+            <td><span class="badge badge-${methodColors[pm] || 'primary'}">${pm}</span></td>
+            <td style="font-size:0.78rem; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.items_summary || '-'}</td>
+            <td><strong>$${s.total.toFixed(2)}</strong>${s.discount_percent > 0 ? `<br><small style="color:var(--danger);">-${s.discount_percent}%</small>` : ''}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="window.open('/api/sales/${s.id}/invoice?token=${getToken()}', '_blank')">PDF</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ═══════════════ MOVEMENTS ═══════════════
+    async function loadMovements() {
+      const type = document.getElementById('movementType').value;
+      const query = type ? `?type=${type}` : '';
+      try {
+        const movements = await api(`/inventory/movements${query}`);
+        const body = document.getElementById('movementsBody');
+
+        if (movements.length === 0) {
+          body.innerHTML = '<tr><td colspan="6" class="empty-state" style="padding:2rem;">Sin movimientos</td></tr>';
+          return;
+        }
+
+        const typeConfig = {
+          entrada: { label: 'Entrada', badge: 'badge-success' },
+          salida: { label: 'Salida', badge: 'badge-danger' },
+          ajuste: { label: 'Ajuste', badge: 'badge-info' },
+          devolucion: { label: 'Devolucion', badge: 'badge-warning' }
+        };
+
+        body.innerHTML = movements.map(m => {
+          const date = new Date(m.created_at);
+          const cfg = typeConfig[m.type] || { label: m.type, badge: 'badge-primary' };
+          return `
+            <tr>
+              <td>${date.toLocaleString('es-ES')}</td>
+              <td><strong>${m.product_name}</strong></td>
+              <td><span class="badge ${cfg.badge}">${cfg.label}</span></td>
+              <td style="font-weight:700; color: ${m.quantity > 0 ? 'var(--success)' : 'var(--danger)'};">${m.quantity > 0 ? '+' : ''}${m.quantity}</td>
+              <td style="font-size:0.8rem;">${m.reason || '-'}</td>
+              <td>${m.user_name}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    // ═══════════════ USERS ═══════════════
+    async function loadUsers() {
+      try {
+        const users = await api('/auth/users');
+        const body = document.getElementById('usersBody');
+
+        body.innerHTML = users.map(u => `
+          <tr>
+            <td><code>${u.username}</code></td>
+            <td><strong>${u.name}</strong></td>
+            <td><span class="badge ${u.role === 'admin' ? 'badge-primary' : 'badge-info'}">${u.role === 'admin' ? 'Admin' : 'Vendedor'}</span></td>
+            <td><span class="status-dot ${u.active ? 'active' : 'inactive'}"></span>${u.active ? 'Activo' : 'Inactivo'}</td>
+            <td style="font-size:0.8rem;">${new Date(u.created_at).toLocaleDateString('es-ES')}</td>
+            <td>
+              <div class="flex-gap">
+                <button class="btn btn-outline btn-sm" onclick="editUser(${u.id}, '${u.username}', '${u.name.replace(/'/g, "\\'")}', '${u.role}', ${u.active})">Editar</button>
+                <button class="btn ${u.active ? 'btn-danger' : 'btn-success'} btn-sm" onclick="toggleUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', ${u.active})">${u.active ? 'Desactivar' : 'Activar'}</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    function openUserModal(user = null) {
+      document.getElementById('userForm').reset();
+      if (user) {
+        document.getElementById('userModalTitle').textContent = 'Editar Usuario';
+        document.getElementById('userId').value = user.id;
+        document.getElementById('userFullName').value = user.name;
+        document.getElementById('userUsername').value = user.username;
+        document.getElementById('userUsername').readOnly = true;
+        document.getElementById('userRole').value = user.role;
+        document.getElementById('userPassLabel').textContent = 'Nueva Contrasena (dejar vacio para no cambiar)';
+        document.getElementById('userPassword').required = false;
+      } else {
+        document.getElementById('userModalTitle').textContent = 'Nuevo Usuario';
+        document.getElementById('userId').value = '';
+        document.getElementById('userUsername').readOnly = false;
+        document.getElementById('userPassLabel').textContent = 'Contrasena *';
+        document.getElementById('userPassword').required = true;
+      }
+      document.getElementById('userModal').classList.add('active');
+    }
+
+    function editUser(id, username, name, role, active) {
+      openUserModal({ id, username, name, role, active });
+    }
+
+    async function saveUser(e) {
+      e.preventDefault();
+      const id = document.getElementById('userId').value;
+      const data = {
+        name: document.getElementById('userFullName').value.trim(),
+        username: document.getElementById('userUsername').value.trim(),
+        role: document.getElementById('userRole').value,
+        password: document.getElementById('userPassword').value || undefined
+      };
+
+      try {
+        if (id) {
+          await api(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+          showToast('Usuario actualizado', 'success');
+        } else {
+          if (!data.password) { showToast('La contrasena es requerida', 'error'); return; }
+          await api('/auth/users', { method: 'POST', body: JSON.stringify(data) });
+          showToast('Usuario creado', 'success');
+        }
+        closeModal('userModal');
+        loadUsers();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function toggleUser(id, name, currentActive) {
+      const action = currentActive ? 'desactivar' : 'activar';
+      if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} a "${name}"?`)) return;
+      try {
+        await api(`/auth/users/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ active: currentActive ? 0 : 1 })
+        });
+        showToast(`Usuario ${action}do`, 'success');
+        loadUsers();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    // ═══════════════ CASH CLOSING ═══════════════
+    async function doCashClosing() {
+      const actual = document.getElementById('cashActual').value;
+      if (!actual && actual !== '0') { showToast('Ingrese el efectivo contado', 'warning'); return; }
+
+      if (!confirm('Realizar corte de caja? Esta accion no se puede deshacer.')) return;
+
+      try {
+        const result = await api('/reports/cash-closing', {
+          method: 'POST',
+          body: JSON.stringify({
+            actual_cash: parseFloat(actual),
+            notes: document.getElementById('cashNotes').value
+          })
+        });
+
+        const diff = result.difference;
+        const diffText = diff === 0 ? 'Cuadre perfecto' : diff > 0 ? `Sobrante: $${diff.toFixed(2)}` : `Faltante: $${Math.abs(diff).toFixed(2)}`;
+
+        showToast(`Corte realizado. ${diffText}`, diff === 0 ? 'success' : 'warning');
+        document.getElementById('cashActual').value = '';
+        document.getElementById('cashNotes').value = '';
+        loadCashClosings();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function loadCashClosings() {
+      try {
+        const closings = await api('/reports/cash-closings');
+        const div = document.getElementById('cashClosingsList');
+
+        if (closings.length === 0) {
+          div.innerHTML = '<div class="empty-state" style="padding:2rem;"><p>No hay cortes registrados</p></div>';
+          return;
+        }
+
+        div.innerHTML = closings.map(c => {
+          const date = new Date(c.created_at);
+          const diffClass = c.difference === 0 ? 'badge-success' : c.difference > 0 ? 'badge-warning' : 'badge-danger';
+          const diffLabel = c.difference === 0 ? 'Cuadrado' : c.difference > 0 ? `+$${c.difference.toFixed(2)}` : `-$${Math.abs(c.difference).toFixed(2)}`;
+          return `
+            <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem;">
+              <div class="flex-between" style="margin-bottom: 0.4rem;">
+                <strong style="font-size: 0.85rem;">${date.toLocaleString('es-ES')}</strong>
+                <span class="badge ${diffClass}">${diffLabel}</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem;">
+                <span>Ventas: ${c.total_sales}</span>
+                <span>Ingresos: $${c.total_revenue.toFixed(2)}</span>
+                <span>Efectivo esperado: $${c.expected_cash.toFixed(2)}</span>
+                <span>Efectivo contado: $${c.actual_cash.toFixed(2)}</span>
+                <span>Transfer: $${c.transfer_sales.toFixed(2)}</span>
+              </div>
+              ${c.notes ? `<p style="font-size:0.78rem; color:var(--text-light); margin-top:0.3rem; font-style:italic;">${c.notes}</p>` : ''}
+              <div style="font-size:0.7rem; color:var(--text-light); margin-top:0.3rem;">Por: ${c.user_name}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    // ═══════════════ ENTRY/RETURN ═══════════════
+    function populateProductSelect(selectId) {
+      const select = document.getElementById(selectId);
+      select.innerHTML = '<option value="">Seleccionar producto...</option>' +
+        allProducts.map(p => `<option value="${p.id}">${p.name} (${p.barcode}) - Stock: ${p.stock}</option>`).join('');
+    }
+
+    async function openEntryModal() {
+      if (allProducts.length === 0) await loadInventory();
+      populateProductSelect('entryProduct');
+      document.getElementById('entryModal').classList.add('active');
+    }
+
+    async function openReturnModal() {
+      if (allProducts.length === 0) await loadInventory();
+      populateProductSelect('returnProduct');
+      document.getElementById('returnModal').classList.add('active');
+    }
+
+    async function saveEntry(e) {
+      e.preventDefault();
+      try {
+        await api('/inventory/entry', {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: parseInt(document.getElementById('entryProduct').value),
+            quantity: parseInt(document.getElementById('entryQty').value),
+            reason: document.getElementById('entryReason').value
+          })
+        });
+        showToast('Entrada registrada', 'success');
+        closeModal('entryModal');
+        loadInventory();
+        loadMovements();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function saveReturn(e) {
+      e.preventDefault();
+      try {
+        await api('/inventory/return', {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: parseInt(document.getElementById('returnProduct').value),
+            quantity: parseInt(document.getElementById('returnQty').value),
+            reason: document.getElementById('returnReason').value
+          })
+        });
+        showToast('Devolucion registrada', 'success');
+        closeModal('returnModal');
+        loadInventory();
+        loadMovements();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    // ═══════════════ MODAL UTILS ═══════════════
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.remove('active');
+      });
+    });
+
+    // ═══════════════ REAL-TIME ═══════════════
+    socket.on('inventory-updated', () => { loadInventory(); loadDashboard(); });
+    socket.on('new-sale', (data) => {
+      showToast(`Nueva venta: ${data.invoiceNumber} - $${data.total.toFixed(2)}`, 'info');
+    });
+
+    // ═══════════════ PUNTO DE VENTA ═══════════════
+    let posCart = [];
+    let posProducts = [];
+    let posPayment = 'Efectivo';
+
+    function posInit() {
+      posLoadProducts();
+      document.getElementById('posSellerName').value = currentUser.name;
+      const now = new Date();
+      document.getElementById('posCurrentDate').value = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      setTimeout(() => document.getElementById('posBarcodeInput').focus(), 100);
+    }
+
+    async function posLoadProducts() {
+      try {
+        posProducts = await api('/products');
+        posRenderCatalog();
+      } catch (err) { showToast('Error cargando productos', 'error'); }
+    }
+
+    function posRenderCatalog(filter = '') {
+      const container = document.getElementById('posCatalogList');
+      const filtered = posProducts.filter(p =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.category_name?.toLowerCase().includes(filter.toLowerCase()) ||
+        p.barcode.includes(filter)
+      );
+      container.innerHTML = filtered.map(p => `
+        <div class="catalog-item${p.stock <= 0 ? ' out-of-stock' : ''}" onclick="${p.stock > 0 ? `posAddById(${p.id})` : ''}">
+          <div class="name">${p.name}</div>
+          <div class="category">${p.category_name || 'Sin categoria'}</div>
+          <div class="price">$${p.sale_price.toFixed(0)}</div>
+          <div class="stock-badge">${p.stock > 0 ? p.stock + ' disp.' : 'Agotado'}</div>
+        </div>
+      `).join('');
+      if (filtered.length === 0) container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1.5rem;"><p>No se encontraron productos</p></div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const posSearch = document.getElementById('posCatalogSearch');
+      if (posSearch) posSearch.addEventListener('input', (e) => posRenderCatalog(e.target.value));
+
+      const posBarcode = document.getElementById('posBarcodeInput');
+      if (posBarcode) posBarcode.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const code = posBarcode.value.trim();
+          if (!code) return;
+          try {
+            const product = await api(`/products/barcode/${encodeURIComponent(code)}`);
+            posAddToCart(product);
+          } catch { showToast('Producto no encontrado: ' + code, 'error'); }
+          posBarcode.value = '';
+          posBarcode.focus();
+        }
+      });
+    });
+
+    function posSelectPayment(btn) {
+      btn.closest('.payment-options').querySelectorAll('.payment-option').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      posPayment = btn.dataset.method;
+    }
+
+    function posAddById(productId) {
+      const p = posProducts.find(p => p.id === productId);
+      if (p) posAddToCart(p);
+    }
+
+    function posAddToCart(product) {
+      const existing = posCart.find(i => i.id === product.id);
+      if (existing) { existing.quantity += 1; }
+      else { posCart.push({ id: product.id, product_id: product.id, name: product.name, barcode: product.barcode, sale_price: product.sale_price, quantity: 1 }); }
+      posRenderCart();
+      showToast(`${product.name} agregado`, 'success');
+    }
+
+    function posUpdateQty(productId, qty) {
+      const item = posCart.find(i => i.id === productId);
+      if (!item) return;
+      const n = parseInt(qty);
+      if (n <= 0) { posRemoveItem(productId); return; }
+      item.quantity = n;
+      posRenderCart();
+    }
+
+    function posRemoveItem(productId) {
+      posCart = posCart.filter(i => i.id !== productId);
+      posRenderCart();
+    }
+
+    function posClearCart() {
+      posCart = [];
+      posRenderCart();
+    }
+
+    function posRenderCart() {
+      const empty = document.getElementById('posEmptyCart');
+      const content = document.getElementById('posCartContent');
+      const totalDiv = document.getElementById('posCartTotal');
+      const btnClear = document.getElementById('posBtnClear');
+      const btnFinalize = document.getElementById('posBtnFinalize');
+
+      if (posCart.length === 0) {
+        empty.style.display = 'block'; content.style.display = 'none';
+        totalDiv.style.display = 'none'; btnClear.style.display = 'none';
+        btnFinalize.disabled = true; return;
+      }
+      empty.style.display = 'none'; content.style.display = 'block';
+      totalDiv.style.display = 'block'; btnClear.style.display = 'inline-flex';
+      btnFinalize.disabled = false;
+
+      let subtotal = 0;
+      document.getElementById('posCartBody').innerHTML = posCart.map(item => {
+        const s = item.sale_price * item.quantity; subtotal += s;
+        return `<tr>
+          <td><strong>${item.name}</strong><br><small style="color:var(--text-light);">${item.barcode}</small></td>
+          <td>$${item.sale_price.toFixed(0)}</td>
+          <td><input type="number" class="qty-input" value="${item.quantity}" min="1" onchange="posUpdateQty(${item.id}, this.value)"></td>
+          <td><strong>$${s.toFixed(0)}</strong></td>
+          <td><button class="btn btn-danger btn-icon btn-sm" onclick="posRemoveItem(${item.id})">&#10005;</button></td>
+        </tr>`;
+      }).join('');
+
+      const discount = Math.max(0, Math.min(100, parseFloat(document.getElementById('posDiscountPercent').value) || 0));
+      const discAmt = subtotal * (discount / 100);
+      const total = subtotal - discAmt;
+      const discRow = document.getElementById('posDiscountRow');
+      if (discount > 0) {
+        discRow.style.display = 'block';
+        document.getElementById('posSubtotalAmount').textContent = subtotal.toFixed(0);
+        document.getElementById('posDiscountDisplay').textContent = discount;
+      } else { discRow.style.display = 'none'; }
+      document.getElementById('posTotalAmount').textContent = total.toFixed(0);
+    }
+
+    async function posFinalizeSale() {
+      if (posCart.length === 0) return;
+      const customerName = document.getElementById('posCustomerName').value.trim() || 'Cliente General';
+      const discount = parseFloat(document.getElementById('posDiscountPercent').value) || 0;
+      const items = posCart.map(i => ({ product_id: i.product_id, quantity: i.quantity }));
+
+      try {
+        document.getElementById('posBtnFinalize').disabled = true;
+        const sale = await api('/sales', {
+          method: 'POST',
+          body: JSON.stringify({ customer_name: customerName, items, payment_method: posPayment, discount_percent: discount })
+        });
+        showToast(`Venta ${sale.invoice_number} - Total: $${sale.total.toFixed(0)}`, 'success');
+
+        posCart = [];
+        document.getElementById('posCustomerName').value = '';
+        document.getElementById('posDiscountPercent').value = '0';
+        document.querySelectorAll('#tab-pos .payment-option').forEach(b => b.classList.remove('active'));
+        document.querySelector('#tab-pos [data-method="Efectivo"]').classList.add('active');
+        posPayment = 'Efectivo';
+        posRenderCart();
+        posLoadProducts();
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        document.getElementById('posBtnFinalize').disabled = false;
+      }
+    }
+
+    // ═══════════════ LABELS ═══════════════
+    let labelItems = [];
+
+    function openLabelModal() {
+      labelItems = [];
+      renderLabelSelected();
+      filterLabelProducts('');
+      document.getElementById('labelSearch').value = '';
+      document.getElementById('labelModal').classList.add('active');
+    }
+
+    function filterLabelProducts(q) {
+      const container = document.getElementById('labelProductList');
+      const filtered = allProducts.filter(p =>
+        p.name.toLowerCase().includes(q.toLowerCase()) ||
+        p.barcode.includes(q) ||
+        (p.category_name || '').toLowerCase().includes(q.toLowerCase())
+      ).slice(0, 50);
+
+      container.innerHTML = filtered.map(p => {
+        const already = labelItems.find(i => i.product_id === p.id);
+        return `<div style="display:flex;align-items:center;padding:0.5rem 0.75rem;border-bottom:1px solid var(--border-light);gap:0.5rem;cursor:pointer;${already ? 'background:var(--primary-50);' : ''}" onclick="addLabelItem(${p.id})">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+            <div style="font-size:0.65rem;color:var(--text-light);">${p.barcode} · Stock: ${p.stock}</div>
+          </div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--success);">$${p.sale_price.toFixed(0)}</div>
+          <div style="font-size:0.7rem;color:var(--primary);">${already ? '✓' : '+'}</div>
+        </div>`;
+      }).join('');
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-light);font-size:0.8rem;">No se encontraron productos</div>';
+      }
+    }
+
+    function addLabelItem(productId) {
+      const existing = labelItems.find(i => i.product_id === productId);
+      if (existing) {
+        labelItems = labelItems.filter(i => i.product_id !== productId);
+      } else {
+        const p = allProducts.find(p => p.id === productId);
+        if (p) labelItems.push({ product_id: p.id, name: p.name, barcode: p.barcode, quantity: p.stock || 1 });
+      }
+      renderLabelSelected();
+      filterLabelProducts(document.getElementById('labelSearch').value);
+    }
+
+    function selectAllForLabels() {
+      if (labelItems.length === allProducts.length) {
+        labelItems = [];
+      } else {
+        labelItems = allProducts.map(p => ({ product_id: p.id, name: p.name, barcode: p.barcode, quantity: p.stock || 1 }));
+      }
+      renderLabelSelected();
+      filterLabelProducts(document.getElementById('labelSearch').value);
+    }
+
+    function updateLabelQty(productId, qty) {
+      const item = labelItems.find(i => i.product_id === productId);
+      if (item) item.quantity = Math.max(1, parseInt(qty) || 1);
+      renderLabelSelected();
+    }
+
+    function removeLabelItem(productId) {
+      labelItems = labelItems.filter(i => i.product_id !== productId);
+      renderLabelSelected();
+      filterLabelProducts(document.getElementById('labelSearch').value);
+    }
+
+    function renderLabelSelected() {
+      const container = document.getElementById('labelSelected');
+      const totalCount = labelItems.reduce((sum, i) => sum + i.quantity, 0);
+      document.getElementById('labelTotalCount').textContent = `${totalCount} etiqueta${totalCount !== 1 ? 's' : ''}`;
+
+      if (labelItems.length === 0) {
+        container.innerHTML = '<div style="padding:0.75rem;text-align:center;color:var(--text-light);font-size:0.8rem;">Haga clic en un producto para agregarlo</div>';
+        return;
+      }
+
+      container.innerHTML = labelItems.map(item => `
+        <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border-light);">
+          <div style="flex:1;font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
+          <input type="number" min="1" value="${item.quantity}" onchange="updateLabelQty(${item.product_id}, this.value)"
+            style="width:60px;padding:0.25rem 0.4rem;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;text-align:center;">
+          <button onclick="removeLabelItem(${item.product_id})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;">✕</button>
+        </div>
+      `).join('');
+    }
+
+    async function printLabels() {
+      if (labelItems.length === 0) { showToast('Seleccione al menos un producto', 'error'); return; }
+
+      const totalLabels = labelItems.reduce((sum, i) => sum + i.quantity, 0);
+      if (!confirm(`Imprimir ${totalLabels} etiqueta(s) directo a la impresora?`)) return;
+
+      try {
+        const data = await api('/products/labels/print', {
+          method: 'POST',
+          body: JSON.stringify({ items: labelItems.map(i => ({ product_id: i.product_id, quantity: i.quantity })) }),
+        });
+
+        closeModal('labelModal');
+        showToast(data.message, 'success');
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    // ═══════════════ INIT ═══════════════
+    loadDashboard();
+    loadInventory();
+    loadMovements();
+  </script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

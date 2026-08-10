@@ -1,0 +1,10 @@
+node_modules/
+backend/certs/
+*.zip
+*.xlsx
+*.json.bak
+ngrok_new.zip
+inventory_data.json
+import_inventory.js
+extract_inventory.py
+.claude/

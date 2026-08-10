@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PAPELUAN - Iniciar Sesion</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="logo">
+        <h1>PAPELUAN</h1>
+      </div>
+      <p class="subtitle">Sistema de Punto de Venta</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Usuario</label>
+          <input type="text" id="username" placeholder="Ingrese su usuario" required autofocus>
+        </div>
+        <div class="form-group">
+          <label>Contrasena</label>
+          <input type="password" id="password" placeholder="Ingrese su contrasena" required>
+        </div>
+        <div id="error" class="alert alert-danger" style="display: none;"></div>
+        <button type="submit" class="btn btn-primary">Iniciar Sesion</button>
+      </form>
+
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const user = getUser();
+    if (user && getToken()) {
+      window.location.href = user.role === 'admin' ? '/admin' : '/vendedor';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById('error');
+      errorEl.style.display = 'none';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const data = await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password })
+        });
+
+        localStorage.setItem('pos_token', data.token);
+        localStorage.setItem('pos_user', JSON.stringify(data.user));
+
+        window.location.href = data.user.role === 'admin' ? '/admin' : '/vendedor';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+  </script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>
