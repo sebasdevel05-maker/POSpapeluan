@@ -8,7 +8,7 @@ const cors = require('cors');
 const { initDatabase } = require('./db/init');
 
 async function start() {
-  // Initialize database (async with sql.js)
+  // Initialize database (PostgreSQL)
   const db = await initDatabase();
 
   // Express app

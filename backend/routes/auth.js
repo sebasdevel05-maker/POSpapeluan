@@ -22,27 +22,32 @@ function adminOnly(req, res, next) {
 }
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const db = req.app.locals.db;
+  const pool = req.app.locals.db;
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(username);
-  if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1 AND active = 1', [username]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
 
-  if (!bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ error: 'Contrasena incorrecta' });
+    if (!bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Contrasena incorrecta' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, username: user.username, name: user.name, role: user.role }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  const token = jwt.sign(
-    { id: user.id, username: user.username, name: user.name, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '12h' }
-  );
-
-  res.json({
-    token,
-    user: { id: user.id, username: user.username, name: user.name, role: user.role }
-  });
 });
 
 // GET /api/auth/me
@@ -51,15 +56,19 @@ router.get('/me', authMiddleware, (req, res) => {
 });
 
 // GET /api/auth/users - List all users (admin only)
-router.get('/users', authMiddleware, adminOnly, (req, res) => {
-  const db = req.app.locals.db;
-  const users = db.prepare('SELECT id, username, name, role, active, created_at FROM users ORDER BY created_at DESC').all();
-  res.json(users);
+router.get('/users', authMiddleware, adminOnly, async (req, res) => {
+  const pool = req.app.locals.db;
+  try {
+    const { rows } = await pool.query('SELECT id, username, name, role, active, created_at FROM users ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/auth/users - Create user (admin only)
-router.post('/users', authMiddleware, adminOnly, (req, res) => {
-  const db = req.app.locals.db;
+router.post('/users', authMiddleware, adminOnly, async (req, res) => {
+  const pool = req.app.locals.db;
   const { username, password, name, role } = req.body;
 
   if (!username || !password || !name || !role) {
@@ -71,11 +80,13 @@ router.post('/users', authMiddleware, adminOnly, (req, res) => {
 
   try {
     const hashed = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)')
-      .run(username, hashed, name, role);
-    res.status(201).json({ id: result.lastInsertRowid, username, name, role, active: 1 });
+    const { rows } = await pool.query(
+      'INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id',
+      [username, hashed, name, role]
+    );
+    res.status(201).json({ id: rows[0].id, username, name, role, active: 1 });
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.message && err.message.includes('unique')) {
       return res.status(400).json({ error: 'El nombre de usuario ya existe' });
     }
     res.status(500).json({ error: err.message });
@@ -83,24 +94,31 @@ router.post('/users', authMiddleware, adminOnly, (req, res) => {
 });
 
 // PUT /api/auth/users/:id - Update user (admin only)
-router.put('/users/:id', authMiddleware, adminOnly, (req, res) => {
-  const db = req.app.locals.db;
+router.put('/users/:id', authMiddleware, adminOnly, async (req, res) => {
+  const pool = req.app.locals.db;
   const { name, role, password, active } = req.body;
   const userId = parseInt(req.params.id);
 
-  const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  if (!existing) return res.status(404).json({ error: 'Usuario no encontrado' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    const existing = rows[0];
+    if (!existing) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-  if (password) {
-    const hashed = bcrypt.hashSync(password, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, userId);
+    if (password) {
+      const hashed = bcrypt.hashSync(password, 10);
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, userId]);
+    }
+
+    await pool.query(
+      'UPDATE users SET name = $1, role = $2, active = $3 WHERE id = $4',
+      [name || existing.name, role || existing.role, active !== undefined ? active : existing.active, userId]
+    );
+
+    const result = await pool.query('SELECT id, username, name, role, active, created_at FROM users WHERE id = $1', [userId]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  db.prepare('UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?')
-    .run(name || existing.name, role || existing.role, active !== undefined ? active : existing.active, userId);
-
-  const updated = db.prepare('SELECT id, username, name, role, active, created_at FROM users WHERE id = ?').get(userId);
-  res.json(updated);
 });
 
 module.exports = router;
