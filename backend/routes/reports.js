@@ -133,7 +133,7 @@ router.get('/sales', authMiddleware, adminOnly, (req, res) => {
 });
 
 // POST /api/reports/cash-closing - Create cash closing
-router.post('/cash-closing', authMiddleware, adminOnly, (req, res) => {
+router.post('/cash-closing', authMiddleware, (req, res) => {
   const db = req.app.locals.db;
   const { actual_cash, notes } = req.body;
 
@@ -178,7 +178,7 @@ router.post('/cash-closing', authMiddleware, adminOnly, (req, res) => {
 });
 
 // GET /api/reports/cash-closings - List cash closings
-router.get('/cash-closings', authMiddleware, adminOnly, (req, res) => {
+router.get('/cash-closings', authMiddleware, (req, res) => {
   const db = req.app.locals.db;
   const closings = db.prepare('SELECT * FROM cash_closings ORDER BY created_at DESC LIMIT 30').all();
   res.json(closings);

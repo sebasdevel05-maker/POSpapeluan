@@ -46,6 +46,12 @@
   </nav>
 
   <div class="container">
+    <div class="tabs" style="margin-bottom: 1rem;">
+      <button class="tab-btn active" onclick="switchTab('pos', this)">Punto de Venta</button>
+      <button class="tab-btn" onclick="switchTab('cashclose', this)">Corte de Caja</button>
+    </div>
+
+    <div id="tab-pos" class="tab-panel active">
     <div class="grid-2" style="grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start;">
 
       <!-- LEFT: Scanner + Cart -->
@@ -155,6 +161,32 @@
           <input type="text" id="catalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
                  placeholder="Buscar producto...">
           <div id="catalogList" class="product-catalog" style="max-height: 380px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ═══════════════ CASH CLOSING ═══════════════ -->
+    <div id="tab-cashclose" class="tab-panel" style="display:none;">
+      <div class="grid-2" style="align-items: start;">
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Realizar Corte de Caja</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            El corte calcula las ventas desde el ultimo cierre. Ingrese el efectivo contado fisicamente.
+          </p>
+          <div class="form-group">
+            <label>Efectivo Contado ($)</label>
+            <input type="number" id="cashActual" min="0" step="0.01" placeholder="0.00" style="font-size: 1.2rem; font-weight: 700;">
+          </div>
+          <div class="form-group">
+            <label>Notas (opcional)</label>
+            <textarea id="cashNotes" rows="2" style="width:100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.85rem; resize: none;"></textarea>
+          </div>
+          <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="doCashClosing()">Realizar Corte</button>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Historial de Cortes</h3>
+          <div id="cashClosingsList" style="max-height: 500px; overflow-y: auto;"></div>
         </div>
       </div>
     </div>
@@ -497,6 +529,77 @@
       try { Quagga.offDetected(); Quagga.stop(); } catch {}
       box.classList.remove('open');
       barcodeInput.focus();
+    }
+
+    // ═══════════════ TABS ═══════════════
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tab).style.display = 'block';
+      btn.classList.add('active');
+      if (tab === 'cashclose') loadCashClosings();
+      if (tab === 'pos') barcodeInput.focus();
+    }
+
+    // ═══════════════ CASH CLOSING ═══════════════
+    async function doCashClosing() {
+      const actual = document.getElementById('cashActual').value;
+      if (!actual && actual !== '0') { showToast('Ingrese el efectivo contado', 'warning'); return; }
+
+      if (!confirm('Realizar corte de caja? Esta accion no se puede deshacer.')) return;
+
+      try {
+        const result = await api('/reports/cash-closing', {
+          method: 'POST',
+          body: JSON.stringify({
+            actual_cash: parseFloat(actual),
+            notes: document.getElementById('cashNotes').value
+          })
+        });
+
+        const diff = result.difference;
+        const diffText = diff === 0 ? 'Cuadre perfecto' : diff > 0 ? `Sobrante: $${diff.toFixed(2)}` : `Faltante: $${Math.abs(diff).toFixed(2)}`;
+
+        showToast(`Corte realizado. ${diffText}`, diff === 0 ? 'success' : 'warning');
+        document.getElementById('cashActual').value = '';
+        document.getElementById('cashNotes').value = '';
+        loadCashClosings();
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function loadCashClosings() {
+      try {
+        const closings = await api('/reports/cash-closings');
+        const div = document.getElementById('cashClosingsList');
+
+        if (closings.length === 0) {
+          div.innerHTML = '<div class="empty-state" style="padding:2rem;"><p>No hay cortes registrados</p></div>';
+          return;
+        }
+
+        div.innerHTML = closings.map(c => {
+          const date = new Date(c.created_at);
+          const diffClass = c.difference === 0 ? 'badge-success' : c.difference > 0 ? 'badge-warning' : 'badge-danger';
+          const diffLabel = c.difference === 0 ? 'Cuadrado' : c.difference > 0 ? `+$${c.difference.toFixed(2)}` : `-$${Math.abs(c.difference).toFixed(2)}`;
+          return `
+            <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem;">
+              <div class="flex-between" style="margin-bottom: 0.4rem;">
+                <strong style="font-size: 0.85rem;">${date.toLocaleString('es-ES')}</strong>
+                <span class="badge ${diffClass}">${diffLabel}</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem;">
+                <span>Ventas: ${c.total_sales}</span>
+                <span>Ingresos: $${c.total_revenue.toFixed(2)}</span>
+                <span>Efectivo esperado: $${c.expected_cash.toFixed(2)}</span>
+                <span>Efectivo contado: $${c.actual_cash.toFixed(2)}</span>
+                <span>Transfer: $${c.transfer_sales.toFixed(2)}</span>
+              </div>
+              ${c.notes ? `<p style="font-size:0.78rem; color:var(--text-light); margin-top:0.3rem; font-style:italic;">${c.notes}</p>` : ''}
+              <div style="font-size:0.7rem; color:var(--text-light); margin-top:0.3rem;">Por: ${c.user_name}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) { showToast('Error: ' + err.message, 'error'); }
     }
 
     loadProducts();
