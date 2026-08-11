@@ -14,12 +14,18 @@ router.get('/', authMiddleware, async (req, res) => {
       ORDER BY p.name
     `);
 
+    const products = rows.map(p => ({
+      ...p,
+      cost_price: parseFloat(p.cost_price),
+      sale_price: parseFloat(p.sale_price),
+    }));
+
     if (req.user.role === 'vendedor') {
-      const filtered = rows.map(({ min_stock, cost_price, ...rest }) => rest);
+      const filtered = products.map(({ min_stock, cost_price, ...rest }) => rest);
       return res.json(filtered);
     }
 
-    res.json(rows);
+    res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -38,6 +44,9 @@ router.get('/barcode/:code', authMiddleware, async (req, res) => {
 
     const product = rows[0];
     if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    product.cost_price = parseFloat(product.cost_price);
+    product.sale_price = parseFloat(product.sale_price);
 
     if (req.user.role === 'vendedor') {
       const { stock, min_stock, cost_price, ...rest } = product;
