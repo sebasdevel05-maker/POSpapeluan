@@ -126,6 +126,10 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+function parseSaleNumerics(s) {
+  return { ...s, total: parseFloat(s.total), subtotal: parseFloat(s.subtotal), discount_percent: parseFloat(s.discount_percent) };
+}
+
 // GET /api/sales
 router.get('/', authMiddleware, async (req, res) => {
   const pool = req.app.locals.db;
@@ -136,7 +140,7 @@ router.get('/', authMiddleware, async (req, res) => {
     } else {
       result = await pool.query('SELECT * FROM sales WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 50', [req.user.id]);
     }
-    res.json(result.rows);
+    res.json(result.rows.map(parseSaleNumerics));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -150,7 +154,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
     const sale = rows[0];
     if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
     const items = await pool.query('SELECT * FROM sale_items WHERE sale_id = $1', [sale.id]);
-    res.json({ ...sale, items: items.rows });
+    const saleItems = items.rows.map(i => ({ ...i, unit_price: parseFloat(i.unit_price), subtotal: parseFloat(i.subtotal) }));
+    res.json({ ...parseSaleNumerics(sale), items: saleItems });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
