@@ -135,7 +135,7 @@ router.get('/sales', authMiddleware, adminOnly, async (req, res) => {
     `, params);
 
     res.json({
-      sales: sales.rows,
+      sales: sales.rows.map(s => ({ ...s, total: parseFloat(s.total), subtotal: parseFloat(s.subtotal), discount_percent: parseFloat(s.discount_percent) })),
       summary: { total_sales: parseInt(summary.rows[0].total_sales), total_revenue: parseFloat(summary.rows[0].total_revenue) },
       byMethod: byMethod.rows.map(r => ({ ...r, count: parseInt(r.count), total: parseFloat(r.total) }))
     });
