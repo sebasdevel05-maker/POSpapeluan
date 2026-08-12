@@ -19,8 +19,10 @@ router.post('/', authMiddleware, async (req, res) => {
   const discount = Math.max(0, Math.min(100, parseFloat(discount_percent) || 0));
 
   const now = new Date();
-  const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const localTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const co = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const localDate = co;
+  const timeParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+  const localTime = timeParts;
   const localTimestamp = `${localDate} ${localTime}`;
   const dateStr = localDate.replace(/-/g, '');
 

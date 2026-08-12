@@ -2,20 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, adminOnly } = require('./auth');
 
-function getLocalDateStr() {
+function getColombiaNow() {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+function getLocalDateStr() {
+  return getColombiaNow();
 }
 
 function getDateDaysAgo(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 function getStartOfMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  const dateStr = getColombiaNow();
+  return dateStr.substring(0, 8) + '01';
 }
 
 // GET /api/reports/dashboard
@@ -152,7 +156,10 @@ router.post('/cash-closing', authMiddleware, async (req, res) => {
   try {
     const lastClosing = await pool.query('SELECT period_end FROM cash_closings ORDER BY id DESC LIMIT 1');
     const periodStart = lastClosing.rows[0] ? lastClosing.rows[0].period_end : getDateDaysAgo(1) + ' 00:00:00';
-    const periodEnd = new Date().toISOString();
+    const nowCo = new Date();
+    const coDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowCo);
+    const coTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(nowCo);
+    const periodEnd = `${coDate} ${coTime}`;
 
     const salesData = await pool.query(`
       SELECT
