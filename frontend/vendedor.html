@@ -52,27 +52,28 @@
     </div>
 
     <div id="tab-pos" class="tab-panel active">
-    <div class="grid-2" style="grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start;">
+    <div class="grid-2" style="grid-template-columns: 1fr 420px; gap: 1.25rem; align-items: start;">
 
-      <!-- LEFT: Scanner + Cart -->
+      <!-- LEFT: Catalog (primary) -->
       <div>
-        <div class="card scanner-section">
-          <h3 style="margin-bottom: 0.75rem;">Escanear Producto</h3>
-          <div class="scanner-row">
-            <input type="text" id="barcodeInput" class="barcode-input"
-                   placeholder="Escanee o escriba el codigo de barras..."
-                   autofocus autocomplete="off">
-            <button class="btn-camera" id="btnCamera" onclick="toggleCamera()" title="Escanear con camara">&#128247;</button>
+        <div class="card">
+          <div class="flex-between" style="margin-bottom: 0.75rem;">
+            <h3 style="margin: 0;">Catalogo de Productos</h3>
           </div>
-          <div id="cameraScannerBox">
+          <input type="text" id="catalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem; font-size: 1rem; padding: 0.75rem 1rem;"
+                 placeholder="Buscar producto por nombre..." autofocus>
+          <input type="text" id="barcodeInput" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
+                 placeholder="O escriba el codigo de barras..." autocomplete="off">
+          <div id="cameraScannerBox" style="display:none;">
             <div id="cameraVideo" style="position:relative;"></div>
             <div class="scan-label">Apunte al codigo de barras</div>
           </div>
-          <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
-            Escriba el codigo o use la camara para escanear
-          </p>
+          <div id="catalogList" class="product-catalog" style="max-height: calc(100vh - 280px); overflow-y: auto;"></div>
         </div>
+      </div>
 
+      <!-- RIGHT: Cart + Sale info -->
+      <div>
         <div class="card">
           <div class="flex-between" style="margin-bottom: 0.75rem;">
             <h3 style="margin: 0;">Carrito de Compras</h3>
@@ -81,9 +82,9 @@
             </button>
           </div>
 
-          <div id="emptyCart" class="empty-state">
+          <div id="emptyCart" class="empty-state" style="padding: 1.5rem 1rem;">
             <div class="icon">&#128722;</div>
-            <p>Carrito vacio. Escanee un producto para comenzar.</p>
+            <p>Seleccione productos del catalogo para agregar.</p>
           </div>
 
           <div id="cartContent" style="display: none;">
@@ -107,10 +108,7 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- RIGHT: Sale info + Catalog -->
-      <div>
         <div class="card">
           <h3 style="margin-bottom: 0.75rem;">Datos de la Venta</h3>
           <div class="form-group">
@@ -128,7 +126,6 @@
             </div>
           </div>
 
-          <!-- Payment Method -->
           <div class="form-group">
             <label>Metodo de Pago</label>
             <div class="payment-options">
@@ -141,13 +138,6 @@
                   onclick="finalizeSale()" id="btnFinalize" disabled>
             Finalizar Venta
           </button>
-        </div>
-
-        <div class="card">
-          <h3 style="margin-bottom: 0.5rem;">Catalogo</h3>
-          <input type="text" id="catalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
-                 placeholder="Buscar producto...">
-          <div id="catalogList" class="product-catalog" style="max-height: 380px; overflow-y: auto;"></div>
         </div>
       </div>
     </div>

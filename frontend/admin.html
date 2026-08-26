@@ -85,25 +85,32 @@
 
     <!-- ═══════════════ PUNTO DE VENTA ═══════════════ -->
     <div id="tab-pos" class="tab-panel">
-      <div class="grid-2" style="grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start;">
+      <div class="grid-2" style="grid-template-columns: 1fr 420px; gap: 1.25rem; align-items: start;">
+
+        <!-- LEFT: Catalog (primary) -->
         <div>
           <div class="card">
-            <h3 style="margin-bottom: 0.75rem;">Escanear Producto</h3>
-            <input type="text" id="posBarcodeInput" class="barcode-input"
-                   placeholder="Escanee o escriba el codigo de barras..." autocomplete="off">
-            <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
-              El lector ingresara el codigo automaticamente
-            </p>
+            <div class="flex-between" style="margin-bottom: 0.75rem;">
+              <h3 style="margin: 0;">Catalogo de Productos</h3>
+            </div>
+            <input type="text" id="posCatalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem; font-size: 1rem; padding: 0.75rem 1rem;"
+                   placeholder="Buscar producto por nombre...">
+            <input type="text" id="posBarcodeInput" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
+                   placeholder="O escriba el codigo de barras..." autocomplete="off">
+            <div id="posCatalogList" class="product-catalog" style="max-height: calc(100vh - 280px); overflow-y: auto;"></div>
           </div>
+        </div>
 
+        <!-- RIGHT: Cart + Sale info -->
+        <div>
           <div class="card">
             <div class="flex-between" style="margin-bottom: 0.75rem;">
               <h3 style="margin: 0;">Carrito de Compras</h3>
               <button class="btn btn-danger btn-sm" onclick="posClearCart()" id="posBtnClear" style="display:none;">Vaciar</button>
             </div>
-            <div id="posEmptyCart" class="empty-state">
+            <div id="posEmptyCart" class="empty-state" style="padding: 1.5rem 1rem;">
               <div class="icon">&#128722;</div>
-              <p>Carrito vacio. Escanee un producto para comenzar.</p>
+              <p>Seleccione productos del catalogo para agregar.</p>
             </div>
             <div id="posCartContent" style="display: none;">
               <table class="cart-table">
@@ -125,9 +132,7 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <div>
           <div class="card">
             <h3 style="margin-bottom: 0.75rem;">Datos de la Venta</h3>
             <div class="form-group">
@@ -155,13 +160,6 @@
                     onclick="posFinalizeSale()" id="posBtnFinalize" disabled>
               Finalizar Venta
             </button>
-          </div>
-
-          <div class="card">
-            <h3 style="margin-bottom: 0.5rem;">Catalogo</h3>
-            <input type="text" id="posCatalogSearch" class="search-input" style="width: 100%; margin-bottom: 0.75rem;"
-                   placeholder="Buscar producto...">
-            <div id="posCatalogList" class="product-catalog" style="max-height: 380px; overflow-y: auto;"></div>
           </div>
         </div>
       </div>
