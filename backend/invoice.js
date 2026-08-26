@@ -9,12 +9,12 @@ function generateInvoicePDF(sale, stream) {
   doc.moveDown(0.2);
   doc.fontSize(10).font('Helvetica').text('Papeleria y Variedades', { align: 'center' });
   doc.moveDown(0.3);
-  doc.fontSize(16).font('Helvetica-Bold').fillColor('#2563eb').text('FACTURA DE VENTA', { align: 'center' });
+  doc.fontSize(16).font('Helvetica-Bold').fillColor('#0d9488').text('FACTURA DE VENTA', { align: 'center' });
   doc.fillColor('#000000');
   doc.moveDown(0.5);
 
   // Line separator
-  doc.moveTo(50, doc.y).lineTo(562, doc.y).lineWidth(2).stroke('#2563eb');
+  doc.moveTo(50, doc.y).lineTo(562, doc.y).lineWidth(2).stroke('#0d9488');
   doc.moveDown(0.5);
 
   // Invoice details
@@ -46,7 +46,7 @@ function generateInvoicePDF(sale, stream) {
   const tableTop = doc.y;
   doc.font('Helvetica-Bold').fontSize(9);
 
-  doc.rect(50, tableTop - 5, 512, 22).fill('#2563eb');
+  doc.rect(50, tableTop - 5, 512, 22).fill('#0d9488');
   doc.fillColor('#ffffff');
   doc.text('#', 55, tableTop, { width: 25 });
   doc.text('Producto', 80, tableTop, { width: 200 });
@@ -100,12 +100,12 @@ function generateInvoicePDF(sale, stream) {
     y += 20;
   }
 
-  doc.moveTo(350, y).lineTo(562, y).lineWidth(2).stroke('#2563eb');
+  doc.moveTo(350, y).lineTo(562, y).lineWidth(2).stroke('#0d9488');
   y += 8;
 
   doc.font('Helvetica-Bold').fontSize(14);
   doc.text('TOTAL:', 390, y, { width: 80, align: 'right' });
-  doc.fillColor('#2563eb').text(`$${sale.total.toFixed(2)}`, 480, y, { width: 80, align: 'right' });
+  doc.fillColor('#0d9488').text(`$${sale.total.toFixed(2)}`, 480, y, { width: 80, align: 'right' });
   doc.fillColor('#000000');
 
   // Footer

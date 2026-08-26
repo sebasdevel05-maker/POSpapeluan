@@ -1,10 +1,10 @@
 /* Fuentes locales - sin dependencia de internet */
 
 :root {
-  --primary: #4f46e5;
-  --primary-dark: #4338ca;
-  --primary-light: #e0e7ff;
-  --primary-50: #eef2ff;
+  --primary: #0d9488;
+  --primary-dark: #0f766e;
+  --primary-light: #ccfbf1;
+  --primary-50: #f0fdfa;
   --success: #059669;
   --success-light: #d1fae5;
   --danger: #dc2626;
@@ -42,14 +42,14 @@ body {
 
 /* ═══════════════════ NAVBAR ═══════════════════ */
 .navbar-pos {
-  background: linear-gradient(135deg, #312e81, var(--primary), #6366f1);
+  background: linear-gradient(135deg, #134e4a, var(--primary), #14b8a6);
   padding: 0 1.5rem;
   height: 60px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: white;
-  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.3);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -202,7 +202,7 @@ body {
 .form-group select:focus,
 .form-group textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
 }
 
 .form-group input[readonly] {
@@ -224,7 +224,7 @@ body {
 
 .search-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
 }
 
 /* ═══════════════════ BARCODE INPUT ═══════════════════ */
@@ -242,7 +242,7 @@ body {
 }
 
 .barcode-input:focus {
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
   background: white;
 }
 
@@ -356,7 +356,7 @@ body {
 
 .catalog-item:hover {
   border-color: var(--primary);
-  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 2px 12px rgba(13, 148, 136, 0.12);
   transform: translateY(-1px);
 }
 
@@ -613,7 +613,7 @@ body {
 
 .bar-chart-row .bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), #6366f1);
+  background: linear-gradient(90deg, var(--primary), #14b8a6);
   border-radius: 6px;
   min-width: 2px;
   transition: width 0.5s ease;
@@ -698,7 +698,7 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #1e1b4b, #312e81, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, #042f2e, #134e4a, #0d9488, #14b8a6);
   background-size: 400% 400%;
   animation: gradientShift 8s ease infinite;
 }
@@ -726,7 +726,7 @@ body {
 .login-box .logo h1 {
   font-size: 2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--primary), #6366f1);
+  background: linear-gradient(135deg, var(--primary), #14b8a6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
