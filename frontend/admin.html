@@ -120,11 +120,6 @@
               </table>
             </div>
             <div id="posCartTotal" style="display: none; border-top: 2px solid var(--border); margin-top: 0.75rem;">
-              <div id="posDiscountRow" style="display: none; padding: 0.5rem 0; text-align: right; font-size: 0.85rem; color: var(--text-muted);">
-                Subtotal: $<span id="posSubtotalAmount">0.00</span>
-                &nbsp; | &nbsp;
-                <span style="color: var(--danger);">-<span id="posDiscountDisplay">0</span>% desc.</span>
-              </div>
               <div class="total-display">
                 Total: $<span id="posTotalAmount">0.00</span>
               </div>
@@ -155,11 +150,6 @@
                 <button class="payment-option active" data-method="Efectivo" onclick="posSelectPayment(this)">Efectivo</button>
                 <button class="payment-option" data-method="Transferencia" onclick="posSelectPayment(this)">Transferencia</button>
               </div>
-            </div>
-            <div class="form-group">
-              <label>Descuento (%)</label>
-              <input type="number" id="posDiscountPercent" min="0" max="100" value="0" step="1"
-                     oninput="posRenderCart()" style="font-weight: 600;">
             </div>
             <button class="btn btn-success btn-lg" style="width: 100%;"
                     onclick="posFinalizeSale()" id="posBtnFinalize" disabled>
@@ -1117,35 +1107,24 @@
         </tr>`;
       }).join('');
 
-      const discount = Math.max(0, Math.min(100, parseFloat(document.getElementById('posDiscountPercent').value) || 0));
-      const discAmt = subtotal * (discount / 100);
-      const total = subtotal - discAmt;
-      const discRow = document.getElementById('posDiscountRow');
-      if (discount > 0) {
-        discRow.style.display = 'block';
-        document.getElementById('posSubtotalAmount').textContent = subtotal.toFixed(0);
-        document.getElementById('posDiscountDisplay').textContent = discount;
-      } else { discRow.style.display = 'none'; }
-      document.getElementById('posTotalAmount').textContent = total.toFixed(0);
+      document.getElementById('posTotalAmount').textContent = subtotal.toFixed(0);
     }
 
     async function posFinalizeSale() {
       if (posCart.length === 0) return;
       const customerName = document.getElementById('posCustomerName').value.trim() || 'Cliente General';
-      const discount = parseFloat(document.getElementById('posDiscountPercent').value) || 0;
       const items = posCart.map(i => ({ product_id: i.product_id, quantity: i.quantity }));
 
       try {
         document.getElementById('posBtnFinalize').disabled = true;
         const sale = await api('/sales', {
           method: 'POST',
-          body: JSON.stringify({ customer_name: customerName, items, payment_method: posPayment, discount_percent: discount })
+          body: JSON.stringify({ customer_name: customerName, items, payment_method: posPayment, discount_percent: 0 })
         });
         showToast(`Venta ${sale.invoice_number} - Total: $${sale.total.toFixed(0)}`, 'success');
 
         posCart = [];
         document.getElementById('posCustomerName').value = '';
-        document.getElementById('posDiscountPercent').value = '0';
         document.querySelectorAll('#tab-pos .payment-option').forEach(b => b.classList.remove('active'));
         document.querySelector('#tab-pos [data-method="Efectivo"]').classList.add('active');
         posPayment = 'Efectivo';

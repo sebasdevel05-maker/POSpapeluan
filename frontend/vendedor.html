@@ -102,12 +102,6 @@
           </div>
 
           <div id="cartTotal" style="display: none; border-top: 2px solid var(--border); margin-top: 0.75rem;">
-            <!-- Discount row -->
-            <div id="discountRow" style="display: none; padding: 0.5rem 0; text-align: right; font-size: 0.85rem; color: var(--text-muted);">
-              Subtotal: $<span id="subtotalAmount">0.00</span>
-              &nbsp; | &nbsp;
-              <span style="color: var(--danger);">-<span id="discountDisplay">0</span>% desc.</span>
-            </div>
             <div class="total-display">
               Total: $<span id="totalAmount">0.00</span>
             </div>
@@ -143,14 +137,7 @@
             </div>
           </div>
 
-          <!-- Discount -->
-          <div class="form-group">
-            <label>Descuento (%)</label>
-            <input type="number" id="discountPercent" min="0" max="100" value="0" step="1"
-                   oninput="renderCart()" style="font-weight: 600;">
-          </div>
-
-          <button class="btn btn-success btn-lg" style="width: 100;"
+          <button class="btn btn-success btn-lg" style="width: 100%;"
                   onclick="finalizeSale()" id="btnFinalize" disabled>
             Finalizar Venta
           </button>
@@ -373,27 +360,13 @@
         `;
       }).join('');
 
-      const discount = Math.max(0, Math.min(100, parseFloat(document.getElementById('discountPercent').value) || 0));
-      const discountAmount = subtotal * (discount / 100);
-      const total = subtotal - discountAmount;
-
-      const discountRow = document.getElementById('discountRow');
-      if (discount > 0) {
-        discountRow.style.display = 'block';
-        document.getElementById('subtotalAmount').textContent = subtotal.toFixed(2);
-        document.getElementById('discountDisplay').textContent = discount;
-      } else {
-        discountRow.style.display = 'none';
-      }
-
-      document.getElementById('totalAmount').textContent = total.toFixed(2);
+      document.getElementById('totalAmount').textContent = subtotal.toFixed(2);
     }
 
     async function finalizeSale() {
       if (cart.length === 0) return;
 
       const customerName = document.getElementById('customerName').value.trim() || 'Cliente General';
-      const discount = parseFloat(document.getElementById('discountPercent').value) || 0;
 
       const items = cart.map(item => ({
         product_id: item.product_id,
@@ -409,7 +382,7 @@
             customer_name: customerName,
             items,
             payment_method: selectedPayment,
-            discount_percent: discount
+            discount_percent: 0
           })
         });
 
@@ -420,7 +393,6 @@
 
         cart = [];
         document.getElementById('customerName').value = '';
-        document.getElementById('discountPercent').value = '0';
         document.querySelectorAll('.payment-option').forEach(b => b.classList.remove('active'));
         document.querySelector('[data-method="Efectivo"]').classList.add('active');
         selectedPayment = 'Efectivo';
