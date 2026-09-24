@@ -55,6 +55,8 @@
         </div>
       </div>
 
+      <div id="profitRow" style="margin-top: 0.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;"></div>
+
       <div class="grid-2" style="margin-top: 1rem;">
         <div class="card">
           <h3 style="margin-bottom: 0.75rem;">Top 5 Productos del Mes</h3>
@@ -467,6 +469,23 @@
         document.getElementById('metricMonthCount').textContent = `${data.month.count} transacciones`;
         document.getElementById('metricLowStock').textContent = data.lowStock;
         document.getElementById('metricTotalProducts').textContent = `${data.totalProducts} productos`;
+
+        // Profit & reinvestment metrics
+        const profitRow = document.getElementById('profitRow');
+        if (data.monthProfit) {
+          const mp = data.monthProfit;
+          const fmt = n => '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const pendingReinv = mp.pending_reinvestment || 0;
+          const reinvLabel = pendingReinv > 0 ? 'Falta por Reponer' : 'Reposicion Completa';
+          const reinvColor = pendingReinv > 0 ? 'var(--info)' : 'var(--success)';
+          const reinvSub = mp.reinvested > 0 ? `Reinvertido: ${fmt(mp.reinvested)}` : 'Sin reinversion aun';
+          const salaryAvail = mp.salary_available || 0;
+          profitRow.innerHTML = `
+            <div class="metric-card"><div class="value" style="color:var(--success);">${fmt(mp.profit)}</div><div class="label">Utilidad del Mes</div><div class="sub">Ganancia real</div></div>
+            <div class="metric-card"><div class="value" style="color:${reinvColor};">${fmt(pendingReinv)}</div><div class="label">${reinvLabel}</div><div class="sub">${reinvSub} de ${fmt(mp.cost)}</div></div>
+            <div class="metric-card"><div class="value" style="color:${salaryAvail >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmt(salaryAvail)}</div><div class="label">Disponible Salario</div><div class="sub">Ventas - reinversion</div></div>
+          `;
+        }
 
         // Top products
         const topBody = document.getElementById('topProductsBody');

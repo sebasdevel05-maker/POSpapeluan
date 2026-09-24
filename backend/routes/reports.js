@@ -78,6 +78,27 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       ORDER BY stock ASC LIMIT 10
     `);
 
+    const monthProfit = await pool.query(`
+      SELECT
+        COALESCE(SUM(si.quantity * si.unit_price), 0) as revenue,
+        COALESCE(SUM(si.quantity * p.cost_price), 0) as cost
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id
+      JOIN products p ON si.product_id = p.id
+      WHERE DATE(s.created_at) >= $1
+    `, [monthStart]);
+
+    const monthReinvestment = await pool.query(`
+      SELECT COALESCE(SUM(im.quantity * p.cost_price), 0) as total
+      FROM inventory_movements im
+      JOIN products p ON im.product_id = p.id
+      WHERE im.type = 'entrada' AND DATE(im.created_at) >= $1
+    `, [monthStart]);
+
+    const mpRevenue = parseFloat(monthProfit.rows[0].revenue);
+    const mpCost = parseFloat(monthProfit.rows[0].cost);
+    const reinvested = parseFloat(monthReinvestment.rows[0].total);
+
     res.json({
       today: { count: parseInt(today.rows[0].count), total: parseFloat(today.rows[0].total) },
       week: { count: parseInt(week.rows[0].count), total: parseFloat(week.rows[0].total) },
@@ -87,7 +108,15 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       topProducts: topProducts.rows.map(r => ({ ...r, total_sold: parseInt(r.total_sold), revenue: parseFloat(r.revenue) })),
       salesByDay: salesByDay.rows.map(r => ({ ...r, count: parseInt(r.count), total: parseFloat(r.total) })),
       salesByMethod: salesByMethod.rows.map(r => ({ ...r, count: parseInt(r.count), total: parseFloat(r.total) })),
-      lowStockProducts: lowStockProducts.rows
+      lowStockProducts: lowStockProducts.rows,
+      monthProfit: {
+        revenue: mpRevenue,
+        cost: mpCost,
+        profit: mpRevenue - mpCost,
+        reinvested,
+        pending_reinvestment: Math.max(0, mpCost - reinvested),
+        salary_available: mpRevenue - Math.max(mpCost, reinvested)
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
