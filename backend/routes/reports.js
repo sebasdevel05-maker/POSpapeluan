@@ -31,15 +31,15 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
 
   try {
     const today = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = $1', [todayStr]
+      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date = $1', [todayStr]
     );
 
     const week = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) >= $1', [weekAgo]
+      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1', [weekAgo]
     );
 
     const month = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) >= $1', [monthStart]
+      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1', [monthStart]
     );
 
     const lowStock = await pool.query(
@@ -52,23 +52,23 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       SELECT si.product_name, SUM(si.quantity) as total_sold, SUM(si.subtotal) as revenue
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
-      WHERE DATE(s.created_at) >= $1
+      WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date >= $1
       GROUP BY si.product_name
       ORDER BY total_sold DESC
       LIMIT 5
     `, [monthStart]);
 
     const salesByDay = await pool.query(`
-      SELECT DATE(created_at) as date, COUNT(*) as count, SUM(total) as total
+      SELECT (created_at AT TIME ZONE 'America/Bogota')::date as date, COUNT(*) as count, SUM(total) as total
       FROM sales
-      WHERE DATE(created_at) >= $1
-      GROUP BY DATE(created_at)
+      WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1
+      GROUP BY (created_at AT TIME ZONE 'America/Bogota')::date
       ORDER BY date ASC
     `, [weekAgo]);
 
     const salesByMethod = await pool.query(`
       SELECT COALESCE(payment_method, 'Efectivo') as method, COUNT(*) as count, SUM(total) as total
-      FROM sales WHERE DATE(created_at) = $1
+      FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date = $1
       GROUP BY payment_method
     `, [todayStr]);
 
@@ -85,14 +85,14 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN products p ON si.product_id = p.id
-      WHERE DATE(s.created_at) >= $1
+      WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date >= $1
     `, [monthStart]);
 
     const monthReinvestment = await pool.query(`
       SELECT COALESCE(SUM(im.quantity * p.cost_price), 0) as total
       FROM inventory_movements im
       JOIN products p ON im.product_id = p.id
-      WHERE im.type = 'entrada' AND DATE(im.created_at) >= $1
+      WHERE im.type = 'entrada' AND (im.created_at AT TIME ZONE 'America/Bogota')::date >= $1
     `, [monthStart]);
 
     const mpRevenue = parseFloat(monthProfit.rows[0].revenue);
@@ -133,16 +133,16 @@ router.get('/sales', authMiddleware, adminOnly, async (req, res) => {
   let paramIdx = 1;
 
   if (period === 'today') {
-    whereClause = `WHERE DATE(s.created_at) = $${paramIdx++}`;
+    whereClause = `WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date = $${paramIdx++}`;
     params = [getLocalDateStr()];
   } else if (period === 'week') {
-    whereClause = `WHERE DATE(s.created_at) >= $${paramIdx++}`;
+    whereClause = `WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date >= $${paramIdx++}`;
     params = [getDateDaysAgo(7)];
   } else if (period === 'month') {
-    whereClause = `WHERE DATE(s.created_at) >= $${paramIdx++}`;
+    whereClause = `WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date >= $${paramIdx++}`;
     params = [getStartOfMonth()];
   } else if (from && to) {
-    whereClause = `WHERE DATE(s.created_at) BETWEEN $${paramIdx++} AND $${paramIdx++}`;
+    whereClause = `WHERE (s.created_at AT TIME ZONE 'America/Bogota')::date BETWEEN $${paramIdx++} AND $${paramIdx++}`;
     params = [from, to];
   }
 

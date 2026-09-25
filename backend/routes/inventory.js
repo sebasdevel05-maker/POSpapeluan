@@ -12,8 +12,8 @@ router.get('/movements', authMiddleware, adminOnly, async (req, res) => {
   let idx = 1;
   if (type) { conditions.push(`type = $${idx++}`); params.push(type); }
   if (product_id) { conditions.push(`product_id = $${idx++}`); params.push(parseInt(product_id)); }
-  if (from) { conditions.push(`DATE(created_at) >= $${idx++}`); params.push(from); }
-  if (to) { conditions.push(`DATE(created_at) <= $${idx++}`); params.push(to); }
+  if (from) { conditions.push(`(created_at AT TIME ZONE 'America/Bogota')::date >= $${idx++}`); params.push(from); }
+  if (to) { conditions.push(`(created_at AT TIME ZONE 'America/Bogota')::date <= $${idx++}`); params.push(to); }
 
   const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
