@@ -31,15 +31,15 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
 
   try {
     const today = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date = $1', [todayStr]
+      `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date = $1`, [todayStr]
     );
 
     const week = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1', [weekAgo]
+      `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1`, [weekAgo]
     );
 
     const month = await pool.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1', [monthStart]
+      `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM sales WHERE (created_at AT TIME ZONE 'America/Bogota')::date >= $1`, [monthStart]
     );
 
     const lowStock = await pool.query(
